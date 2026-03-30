@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router';
 import { Home, ShoppingBag, Package, Heart, Users, UserCircle, LayoutDashboard, PlusCircle, DollarSign, Star, BarChart3, FileText, MapPin } from 'lucide-react';
-import logo from "/src/assets/placeholder.png";git add .
+import logo from "../../assets/placeholder.png";
 
 interface SidebarProps {
   role: 'buyer' | 'seller' | 'admin';

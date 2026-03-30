@@ -109,16 +109,14 @@ export function Footer() {
 
       {/* Bottom Line */}
       <div className="border-t border-green-800">
-        <div className="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between text-sm text-gray-400">
+        <div className="container mx-auto px-6 py-4 flex justify-center text-gray-400 text-sm">
           
           <div>
             © {new Date().getFullYear()} PahadGrow. All rights reserved.
+          
           </div>
 
-          <div>
-            Made with ❤️ in Uttarakhand
-          </div>
-
+        
         </div>
       </div>
 
