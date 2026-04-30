@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router';
 import { Home, ShoppingBag, Package, Heart, Users, UserCircle, LayoutDashboard, PlusCircle, DollarSign, Star, BarChart3, FileText, MapPin } from 'lucide-react';
-import logo from "../../assets/placeholder.png";
 
 interface SidebarProps {
   role: 'buyer' | 'seller' | 'admin';
@@ -40,22 +39,18 @@ export function Sidebar({ role }: SidebarProps) {
 
   const links = role === 'buyer' ? buyerLinks : role === 'seller' ? sellerLinks : adminLinks;
 
-  return (
-    <aside className="w-64 bg-white border-r border-border min-h-screen shadow-sm">
-      <div className="p-6">
-        {/* Compact Logo */}
-        <Link to="/" className="flex justify-center mb-6 pb-4 border-b border-border">
-          <img 
-            src={logo} 
-            alt="PahadGrow" 
-            className="h-12 w-auto object-contain hover:scale-105 transition-transform"
-          />
-        </Link>
+  const panelLabel = role === 'buyer' ? 'User Panel' : role === 'seller' ? 'Seller Panel' : 'Admin Panel';
+  const panelColor = role === 'admin' ? 'text-purple-700 bg-purple-50' : 'text-green-700 bg-green-50';
 
-        <h2 className="text-lg font-semibold text-foreground mb-6 border-b border-border pb-3">
-          {role === 'buyer' ? 'User Panel' : role === 'seller' ? 'Seller Panel' : 'Admin Panel'}
-        </h2>
-        <nav className="space-y-1">
+  return (
+    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen shadow-sm flex-shrink-0">
+      <div className="p-5">
+        {/* Panel Label */}
+        <div className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest mb-5 ${panelColor}`}>
+          {panelLabel}
+        </div>
+
+        <nav className="space-y-0.5">
           {links.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname === link.path;
@@ -63,18 +58,27 @@ export function Sidebar({ role }: SidebarProps) {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group ${
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-foreground hover:bg-muted hover:text-primary'
+                    ? 'bg-green-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
                 }`}
               >
-                <Icon size={20} />
-                <span className="font-medium">{link.label}</span>
+                <Icon size={18} className={isActive ? 'text-white' : 'text-gray-400 group-hover:text-green-600'} />
+                <span className="font-medium text-sm">{link.label}</span>
               </Link>
             );
           })}
         </nav>
+
+        {/* Bottom: Logout */}
+        <div className="mt-8 pt-5 border-t border-gray-100">
+          <Link to="/"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all text-sm font-medium"
+          >
+            <span>← Back to Home</span>
+          </Link>
+        </div>
       </div>
     </aside>
   );
