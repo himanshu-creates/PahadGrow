@@ -1,0 +1,71 @@
+@theme {
+  --color-primary: #1B5E20;
+  --color-secondary: #4CAF50;
+  --color-accent: #FF8F00;
+  --color-background: #F8FAF8;
+  --color-foreground: #111827;
+  --color-muted: #F3F4F6;
+  --color-muted-foreground: #4B5563;
+  --color-border: #E5E7EB;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary-foreground: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-destructive: #D32F2F;
+  --color-text-secondary: #4B5563;
+  --color-sidebar-bg: #F3F6F3;
+  --color-tag-bg: #E8F5E9;
+  --color-icon: #374151;
+  --color-button-inactive: #FFFFFF;
+  --color-button-inactive-border: #D1D5DB;
+  --color-button-inactive-text: #374151;
+  --color-button-hover: #2E7D32;
+}
+
+/* Slick Carousel Custom Styles */
+.slick-dots li button:before {
+  color: var(--color-primary) !important;
+  opacity: 0.3;
+}
+
+.slick-dots li.slick-active button:before {
+  opacity: 1;
+  color: var(--color-primary) !important;
+}
+
+.slick-prev, .slick-next {
+  z-index: 10;
+}
+
+.slick-prev:before, .slick-next:before {
+  color: var(--color-primary) !important;
+  font-size: 24px;
+}
+
+.rare-products-slider .slick-slide {
+  padding: 0 12px;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-muted);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
