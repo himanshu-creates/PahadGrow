@@ -120,6 +120,6 @@ export const router = createBrowserRouter([
     Component: Profile,
   },
   { path: '/cart', 
-    Component: Cart },
+    Component: Cart },  
 ]);
   

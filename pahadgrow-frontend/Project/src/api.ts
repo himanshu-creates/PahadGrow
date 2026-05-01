@@ -2,7 +2,7 @@
 // All backend calls go through here. Change BASE_URL to your deployed backend URL.
 // Set VITE_API_URL in .env for production.
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const BASE_URL = 'http://localhost:4000/api';
 
 function getToken(): string | null {
   return localStorage.getItem('pg_token');
