@@ -89,16 +89,15 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
                 <Link to="/login" className="hidden md:block text-green-700 font-medium hover:text-green-800 transition-colors px-3 py-2">
                   {t('nav.login')}
                 </Link>
-                <Link to="/login" className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 transition-colors font-medium text-sm">
+                {/* ✅ FIX: /login → /signup */}
+                <Link to="/signup" className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 transition-colors font-medium text-sm">
                   {t('nav.signup')}
                 </Link>
               </>
             ) : (
               <div className="flex items-center gap-1">
-                {/* Notifications */}
                 <NotificationBell />
 
-                {/* Wishlist */}
                 <Link
                   to="/dashboard"
                   className="relative p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -112,7 +111,6 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
                   )}
                 </Link>
 
-                {/* Cart */}
                 <Link
                   to="/cart"
                   className="relative p-2 text-gray-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
@@ -126,7 +124,6 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
                   )}
                 </Link>
 
-                {/* User Avatar Menu */}
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
@@ -203,7 +200,8 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
                   className="flex-1 text-center py-2.5 border border-green-700 text-green-700 rounded-lg font-medium">
                   {t('nav.login')}
                 </Link>
-                <Link to="/login" onClick={() => setShowMobileMenu(false)}
+                {/* ✅ FIX: /login → /signup */}
+                <Link to="/signup" onClick={() => setShowMobileMenu(false)}
                   className="flex-1 text-center py-2.5 bg-green-700 text-white rounded-lg font-medium">
                   {t('nav.signup')}
                 </Link>

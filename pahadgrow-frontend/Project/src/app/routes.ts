@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminPanel from './pages/AdminPanel';
@@ -15,111 +16,32 @@ import Profile from './pages/Profile';
 import Cart from './pages/Cart';
 
 export const router = createBrowserRouter([
-  {
-    path: '/',
-    Component: Landing,
-  },
-  {
-    path: '/login',
-    Component: Login,
-  },
-  {
-    path: '/dashboard',
-    Component: Dashboard,
-  },
-  {
-    path: '/seller',
-    Component: SellerDashboard,
-  },
-  {
-    path: '/seller/add-product',
-    Component: AddProduct,
-  },
-  {
-    path: '/seller/products',
-    Component: SellerDashboard,
-  },
-  {
-    path: '/seller/orders',
-    Component: SellerDashboard,
-  },
-  {
-    path: '/seller/earnings',
-    Component: SellerDashboard,
-  },
-  {
-    path: '/seller/reviews',
-    Component: SellerDashboard,
-  },
-  {
-    path: '/admin',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/users',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/sellers',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/products',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/orders',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/reports',
-    Component: AdminPanel,
-  },
-  {
-    path: '/admin/analytics',
-    Component: AdminPanel,
-  },
-  {
-    path: '/marketplace',
-    Component: Marketplace,
-  },
-  {
-    path: '/product/:id',
-    Component: ProductDetails,
-  },
-  {
-    path: '/knowledge',
-    Component: Knowledge,
-  },
-  {
-    path: '/land-rental',
-    Component: LandRental,
-  },
-  {
-    path: '/community',
-    Component: Community,
-  },
-  {
-    path: '/subscription',
-    Component: Subscription,
-  },
-  {
-    path: '/profile',
-    Component: Profile,
-  },
-  {
-    path: '/orders',
-    Component: Dashboard,
-  },
-  {
-    path: '/wishlist',
-    Component: Dashboard,
-  },
-  {
-    path: '/seller-profile/:id',
-    Component: Profile,
-  },
-  { path: '/cart', 
-    Component: Cart },  
+  { path: '/', Component: Landing },
+  { path: '/login', Component: Login },
+  { path: '/signup', Component: Signup },
+  { path: '/dashboard', Component: Dashboard },
+  { path: '/seller', Component: SellerDashboard },
+  { path: '/seller/add-product', Component: AddProduct },
+  { path: '/seller/products', Component: SellerDashboard },
+  { path: '/seller/orders', Component: SellerDashboard },
+  { path: '/seller/earnings', Component: SellerDashboard },
+  { path: '/seller/reviews', Component: SellerDashboard },
+  { path: '/admin', Component: AdminPanel },
+  { path: '/admin/users', Component: AdminPanel },
+  { path: '/admin/sellers', Component: AdminPanel },
+  { path: '/admin/products', Component: AdminPanel },
+  { path: '/admin/orders', Component: AdminPanel },
+  { path: '/admin/reports', Component: AdminPanel },
+  { path: '/admin/analytics', Component: AdminPanel },
+  { path: '/marketplace', Component: Marketplace },
+  { path: '/product/:id', Component: ProductDetails },
+  { path: '/knowledge', Component: Knowledge },
+  { path: '/land-rental', Component: LandRental },
+  { path: '/community', Component: Community },
+  { path: '/subscription', Component: Subscription },
+  { path: '/profile', Component: Profile },
+  { path: '/orders', Component: Dashboard },
+  { path: '/wishlist', Component: Dashboard },
+  { path: '/seller-profile/:id', Component: Profile },
+  { path: '/cart', Component: Cart },
 ]);
-  

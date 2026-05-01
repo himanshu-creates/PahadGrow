@@ -1,35 +1,49 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Phone, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Navbar } from '../components/Navbar';
-import { login } from '../../api';
+import { register } from '../../api';
 import logo from '../../assets/placeholder.png';
 
-export default function Login() {
+export default function Signup() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'landowner' | 'admin'>('buyer');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await register({ name, email, password, phone, role });
       const userRole = data.user.role;
       if (userRole === 'admin') navigate('/admin');
       else if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
       else navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const roleOptions = [
+    { value: 'buyer', label: 'Buyer', emoji: '🛒', desc: 'Want to buy products' },
+    { value: 'seller', label: 'Seller (Farmer)', emoji: '🌾', desc: 'Want to sell products' },
+    { value: 'landowner', label: 'Land Owner', emoji: '🏔️', desc: 'Want to rent land' },
+    { value: 'admin', label: 'Admin', emoji: '⚙️', desc: 'Manage the platform' },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
@@ -45,7 +59,6 @@ export default function Login() {
             <div className="h-1.5 bg-gradient-to-r from-green-700 via-green-500 to-green-700" />
             <div className="p-8">
 
-              {/* Logo */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -63,11 +76,10 @@ export default function Login() {
                 transition={{ delay: 0.2 }}
                 className="text-center mb-6"
               >
-                <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-                <p className="text-gray-500 text-sm mt-1">Login to continue</p>
+                <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
+                <p className="text-gray-500 text-sm mt-1">Join PahadGrow today</p>
               </motion.div>
 
-              {/* Error */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -81,12 +93,54 @@ export default function Login() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
 
-                {/* Email */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 }}
                 >
+                  <label className="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {roleOptions.map((option, i) => (
+                      <motion.button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setRole(option.value as any)}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.25 + i * 0.05 }}
+                        className={`flex flex-col items-start px-3 py-2.5 rounded-lg border text-sm transition-all ${
+                          role === option.value
+                            ? 'border-green-700 bg-green-700 text-white font-medium shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-green-500 hover:text-green-700'
+                        }`}
+                      >
+                        <span className="text-base mb-0.5">{option.emoji} {option.label}</span>
+                        <span className={`text-xs ${role === option.value ? 'text-green-100' : 'text-gray-400'}`}>
+                          {option.desc}
+                        </span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Your full name"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
+                      required
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -101,12 +155,23 @@ export default function Login() {
                   </div>
                 </motion.div>
 
-                {/* Password */}
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Phone Number <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }}>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -114,9 +179,10 @@ export default function Login() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Min 6 characters"
                       className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
                       required
+                      minLength={6}
                     />
                     <button
                       type="button"
@@ -126,29 +192,13 @@ export default function Login() {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-400 mt-1">Minimum 6 characters</p>
                 </motion.div>
 
-                {/* Remember / Forgot */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.35 }}
-                  className="flex items-center justify-between"
-                >
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="rounded accent-green-700" />
-                    <span className="text-sm text-gray-500">Remember me</span>
-                  </label>
-                  <button type="button" className="text-sm text-green-700 hover:underline font-medium">
-                    Forgot password?
-                  </button>
-                </motion.div>
-
-                {/* Submit Button */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: 0.5 }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -160,60 +210,22 @@ export default function Login() {
                     {loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Logging in...
+                        Creating account...
                       </>
-                    ) : 'Login'}
+                    ) : 'Create Account'}
                   </button>
                 </motion.div>
               </form>
 
-              {/* Divider */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.45 }}
-                className="relative my-5"
-              >
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-100" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-3 bg-white text-gray-400">or continue with</span>
-                </div>
-              </motion.div>
-
-              {/* Google */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <button
-                  type="button"
-                  className="w-full py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm font-medium text-gray-700"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Continue with Google
-                </button>
-              </motion.div>
-
-              {/* Signup link */}
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.55 }}
                 className="text-center text-sm text-gray-500 mt-5"
               >
-                Don't have an account?{' '}
-                <Link to="/signup" className="text-green-700 hover:underline font-semibold">
-                  Sign up
+                Already have an account?{' '}
+                <Link to="/login" className="text-green-700 hover:underline font-semibold">
+                  Login
                 </Link>
               </motion.p>
 

@@ -1,8 +1,4 @@
-// ─── API Service ─────────────────────────────────────────────────────────────
-// All backend calls go through here. Change BASE_URL to your deployed backend URL.
-// Set VITE_API_URL in .env for production.
-
-const BASE_URL = 'http://localhost:4000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 function getToken(): string | null {
   return localStorage.getItem('pg_token');
@@ -28,7 +24,15 @@ async function request<T>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const url = `${BASE_URL}${path}`;
+
+  const res = await fetch(url, { ...options, headers });
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Backend se connection nahi ho raha. Kya backend port 4000 pe chal raha hai?`);
+  }
+
   const data = await res.json();
 
   if (!res.ok) {
