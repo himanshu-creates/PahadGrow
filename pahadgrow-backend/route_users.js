@@ -1,111 +1,204 @@
 import { Router } from 'express';
-import { users, carts, wishlists, landListings, communityPosts, products, newId } from './data_store.js';
-import { authMiddleware, requireRole } from './middleware_auth.js';
+import bcrypt from 'bcryptjs';
+import { User, CartItem, Wishlist, Product, Land, CommunityPost } from './models.js';
+import { authMiddleware } from './middleware_auth.js';
 
 const router = Router();
 
-// ─── USERS ────────────────────────────────────────────────────────────────────
-// GET /api/users/profile
-router.get('/profile', authMiddleware, (req, res) => {
-  const user = users.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ success: false, message: 'Not found' });
-  const { password: _, ...safe } = user;
-  res.json({ success: true, user: safe });
+// ─── GET PROFILE ──────────────────────────────────────────────────────────────
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, user: { ...user, id: user._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// PUT /api/users/profile
-router.put('/profile', authMiddleware, (req, res) => {
-  const idx = users.findIndex(u => u.id === req.user.id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Not found' });
-  const allowed = ['name','phone','village','district','state','bio','avatar'];
-  allowed.forEach(k => { if (req.body[k] !== undefined) users[idx][k] = req.body[k]; });
-  const { password: _, ...safe } = users[idx];
-  res.json({ success: true, user: safe });
+// ─── UPDATE PROFILE ───────────────────────────────────────────────────────────
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const allowed = ['name', 'phone', 'village', 'district', 'state', 'bio', 'avatar'];
+    const updates = {};
+    allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
+
+    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password').lean();
+    res.json({ success: true, user: { ...user, id: user._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// GET /api/users  (admin only)
-router.get('/', authMiddleware, requireRole('admin'), (req, res) => {
-  const safe = users.map(({ password: _, ...u }) => u);
-  res.json({ success: true, users: safe, total: safe.length });
+// ─── CHANGE PASSWORD ──────────────────────────────────────────────────────────
+router.put('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ success: false, message: 'Both passwords required' });
+    if (newPassword.length < 6)
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+
+    const user = await User.findById(req.user.id);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch)
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// ─── CART ─────────────────────────────────────────────────────────────────────
-// GET /api/users/cart
-router.get('/cart', authMiddleware, (req, res) => {
-  const items = carts[req.user.id] || [];
-  const enriched = items.map(item => {
-    const p = products.find(p => p.id === item.productId);
-    return { ...item, product: p || null };
-  });
-  res.json({ success: true, cart: enriched });
+// ─── GET CART ─────────────────────────────────────────────────────────────────
+router.get('/cart', authMiddleware, async (req, res) => {
+  try {
+    const items = await CartItem.find({ userId: req.user.id }).lean();
+    const productIds = items.map(i => i.productId);
+    const products = await Product.find({ _id: { $in: productIds } }).lean();
+    const productMap = Object.fromEntries(products.map(p => [p._id.toString(), { ...p, id: p._id }]));
+
+    const cart = items.map(i => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      product: productMap[i.productId.toString()] || null,
+    }));
+
+    res.json({ success: true, cart });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// POST /api/users/cart
-router.post('/cart', authMiddleware, (req, res) => {
-  const { productId, quantity = 1 } = req.body;
-  if (!carts[req.user.id]) carts[req.user.id] = [];
-  const existing = carts[req.user.id].find(i => i.productId === productId);
-  if (existing) existing.quantity += Number(quantity);
-  else carts[req.user.id].push({ productId, quantity: Number(quantity) });
-  res.json({ success: true, cart: carts[req.user.id] });
+// ─── ADD / UPDATE CART ────────────────────────────────────────────────────────
+router.post('/cart', authMiddleware, async (req, res) => {
+  try {
+    const { productId, quantity = 1 } = req.body;
+    if (!productId) return res.status(400).json({ success: false, message: 'productId required' });
+
+    await CartItem.findOneAndUpdate(
+      { userId: req.user.id, productId },
+      { quantity: Number(quantity) },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, message: 'Cart updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// DELETE /api/users/cart/:productId
-router.delete('/cart/:productId', authMiddleware, (req, res) => {
-  carts[req.user.id] = (carts[req.user.id] || []).filter(i => i.productId !== req.params.productId);
-  res.json({ success: true });
+// ─── REMOVE FROM CART ─────────────────────────────────────────────────────────
+router.delete('/cart/:productId', authMiddleware, async (req, res) => {
+  try {
+    await CartItem.findOneAndDelete({ userId: req.user.id, productId: req.params.productId });
+    res.json({ success: true, message: 'Removed from cart' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// ─── WISHLIST ─────────────────────────────────────────────────────────────────
-router.get('/wishlist', authMiddleware, (req, res) => {
-  const ids = wishlists[req.user.id] || [];
-  const items = ids.map(id => products.find(p => p.id === id)).filter(Boolean);
-  res.json({ success: true, wishlist: items });
+// ─── CLEAR CART ───────────────────────────────────────────────────────────────
+router.delete('/cart', authMiddleware, async (req, res) => {
+  try {
+    await CartItem.deleteMany({ userId: req.user.id });
+    res.json({ success: true, message: 'Cart cleared' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-router.post('/wishlist/:productId', authMiddleware, (req, res) => {
-  if (!wishlists[req.user.id]) wishlists[req.user.id] = [];
-  const id = req.params.productId;
-  const idx = wishlists[req.user.id].indexOf(id);
-  if (idx === -1) wishlists[req.user.id].push(id);
-  else wishlists[req.user.id].splice(idx, 1);
-  res.json({ success: true, wishlisted: idx === -1 });
+// ─── GET WISHLIST ─────────────────────────────────────────────────────────────
+router.get('/wishlist', authMiddleware, async (req, res) => {
+  try {
+    const items = await Wishlist.find({ userId: req.user.id }).lean();
+    const productIds = items.map(i => i.productId);
+    const products = await Product.find({ _id: { $in: productIds } }).lean();
+    res.json({ success: true, wishlist: products.map(p => ({ ...p, id: p._id })) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// ─── LAND LISTINGS ────────────────────────────────────────────────────────────
-router.get('/land', (req, res) => {
-  const { district, search } = req.query;
-  let result = landListings.filter(l => l.status === 'available');
-  if (district && district !== 'All Districts') result = result.filter(l => l.district === district);
-  if (search) result = result.filter(l => l.village.toLowerCase().includes(search.toLowerCase()) || l.district.toLowerCase().includes(search.toLowerCase()));
-  res.json({ success: true, lands: result });
+// ─── TOGGLE WISHLIST ──────────────────────────────────────────────────────────
+router.post('/wishlist/:productId', authMiddleware, async (req, res) => {
+  try {
+    const existing = await Wishlist.findOne({ userId: req.user.id, productId: req.params.productId });
+    if (existing) {
+      await existing.deleteOne();
+      return res.json({ success: true, wishlisted: false });
+    }
+    await Wishlist.create({ userId: req.user.id, productId: req.params.productId });
+    res.json({ success: true, wishlisted: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-router.post('/land', authMiddleware, requireRole('seller', 'landowner', 'admin'), (req, res) => {
-  const { village, district, area, price, image, suitableFor, water, electricity, description } = req.body;
-  const listing = { id: newId(), ownerId: req.user.id, ownerName: req.user.name, village, district, area, price: Number(price), priceUnit: '/month', image: image || '', suitableFor: suitableFor || [], water: Boolean(water), electricity: Boolean(electricity), description: description || '', status: 'available', createdAt: new Date().toISOString() };
-  landListings.push(listing);
-  res.status(201).json({ success: true, listing });
+// ─── GET LAND LISTINGS ────────────────────────────────────────────────────────
+router.get('/land', async (req, res) => {
+  try {
+    const { district, search } = req.query;
+    const filter = {};
+    if (district) filter.district = district;
+    if (search) {
+      filter.$or = [
+        { village: { $regex: search, $options: 'i' } },
+        { district: { $regex: search, $options: 'i' } },
+        { suitableFor: { $in: [new RegExp(search, 'i')] } },
+      ];
+    }
+    const lands = await Land.find(filter).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, lands: lands.map(l => ({ ...l, id: l._id })) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// ─── COMMUNITY POSTS ──────────────────────────────────────────────────────────
-router.get('/community', (req, res) => {
-  res.json({ success: true, posts: communityPosts });
+// ─── GET COMMUNITY POSTS ──────────────────────────────────────────────────────
+router.get('/community', async (req, res) => {
+  try {
+    const posts = await CommunityPost.find().sort({ createdAt: -1 }).lean();
+    res.json({ success: true, posts: posts.map(p => ({ ...p, id: p._id, createdAt: p.createdAt })) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-router.post('/community', authMiddleware, (req, res) => {
-  const { question, content, tags } = req.body;
-  if (!question || !content) return res.status(400).json({ success: false, message: 'question and content required' });
-  const post = { id: newId(), authorId: req.user.id, authorName: req.user.name, question, content, likes: 0, replyCount: 0, tags: tags || [], createdAt: new Date().toISOString() };
-  communityPosts.push(post);
-  res.status(201).json({ success: true, post });
+// ─── CREATE COMMUNITY POST ────────────────────────────────────────────────────
+router.post('/community', authMiddleware, async (req, res) => {
+  try {
+    const { question, content, tags = [] } = req.body;
+    if (!question || !content)
+      return res.status(400).json({ success: false, message: 'Question and content required' });
+
+    const post = await CommunityPost.create({
+      authorId: req.user.id,
+      authorName: req.user.name,
+      question, content, tags,
+    });
+
+    res.status(201).json({ success: true, post: { ...post.toObject(), id: post._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-router.post('/community/:id/like', authMiddleware, (req, res) => {
-  const post = communityPosts.find(p => p.id === req.params.id);
-  if (!post) return res.status(404).json({ success: false, message: 'Not found' });
-  post.likes += 1;
-  res.json({ success: true, likes: post.likes });
+// ─── LIKE POST ────────────────────────────────────────────────────────────────
+router.post('/community/:postId/like', authMiddleware, async (req, res) => {
+  try {
+    const post = await CommunityPost.findByIdAndUpdate(
+      req.params.postId,
+      { $inc: { likes: 1 } },
+      { new: true }
+    );
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    res.json({ success: true, likes: post.likes });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export default router;

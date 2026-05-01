@@ -1,89 +1,138 @@
 import { Router } from 'express';
-import { products, reviews, newId } from './data_store.js';
-import { authMiddleware, requireRole } from './middleware_auth.js';
+import { Product, Review } from './models.js';
+import { authMiddleware } from './middleware_auth.js';
 
 const router = Router();
 
-// GET /api/products  — list with optional filters
-router.get('/', (req, res) => {
-  const { category, search, sellerId, status = 'active', page = 1, limit = 20 } = req.query;
-  let result = products.filter(p => p.status === status);
-  if (category && category !== 'all') result = result.filter(p => p.category === category);
-  if (sellerId) result = result.filter(p => p.sellerId === sellerId);
-  if (search) {
-    const q = search.toLowerCase();
-    result = result.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.location.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) ||
-      p.tags.some(t => t.toLowerCase().includes(q))
-    );
+// ─── GET ALL PRODUCTS ─────────────────────────────────────────────────────────
+router.get('/', async (req, res) => {
+  try {
+    const { category, search, sellerId, page = 1, limit = 20 } = req.query;
+    const filter = { status: 'active' };
+
+    if (category) filter.category = category;
+    if (sellerId) filter.sellerId = sellerId;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const [products, total] = await Promise.all([
+      Product.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    // Add id field
+    const mapped = products.map(p => ({ ...p, id: p._id }));
+    res.json({ success: true, products: mapped, total });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
-  const total = result.length;
-  const start = (Number(page) - 1) * Number(limit);
-  result = result.slice(start, start + Number(limit));
-  res.json({ success: true, products: result, total, page: Number(page), limit: Number(limit) });
 });
 
-// GET /api/products/:id
-router.get('/:id', (req, res) => {
-  const product = products.find(p => p.id === req.params.id);
-  if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-  const productReviews = reviews.filter(r => r.productId === product.id);
-  res.json({ success: true, product, reviews: productReviews });
+// ─── GET SINGLE PRODUCT ───────────────────────────────────────────────────────
+router.get('/:id', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id).lean();
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    const reviews = await Review.find({ productId: req.params.id }).sort({ createdAt: -1 }).lean();
+
+    res.json({
+      success: true,
+      product: { ...product, id: product._id },
+      reviews: reviews.map(r => ({ ...r, id: r._id })),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// POST /api/products  — seller only
-router.post('/', authMiddleware, requireRole('seller', 'admin'), (req, res) => {
-  const { name, category, price, originalPrice, unit, stock, images, description, location, tags } = req.body;
-  if (!name || !category || !price) return res.status(400).json({ success: false, message: 'name, category, price required' });
-  const seller = { sellerId: req.user.id, sellerName: req.user.name, sellerVillage: '' };
-  const product = {
-    id: newId(), ...seller, name, category,
-    price: Number(price), originalPrice: Number(originalPrice || price),
-    unit: unit || '', stock: Number(stock || 0), sold: 0,
-    images: images || [], description: description || '',
-    location: location || '', rating: 0, reviewCount: 0,
-    tags: tags || [], status: 'active', createdAt: new Date().toISOString()
-  };
-  products.push(product);
-  res.status(201).json({ success: true, product });
+// ─── CREATE PRODUCT ───────────────────────────────────────────────────────────
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    if (!['seller', 'landowner', 'admin'].includes(req.user.role))
+      return res.status(403).json({ success: false, message: 'Only sellers can add products' });
+
+    const { name, category, price, originalPrice, unit, stock, description, location, tags, images } = req.body;
+
+    if (!name || !category || !price)
+      return res.status(400).json({ success: false, message: 'Name, category, and price required' });
+
+    const product = await Product.create({
+      sellerId: req.user.id,
+      sellerName: req.user.name,
+      sellerVillage: req.user.village || '',
+      name, category,
+      price: Number(price),
+      originalPrice: Number(originalPrice || price),
+      unit: unit || 'kg',
+      stock: Number(stock || 0),
+      description: description || '',
+      location: location || '',
+      tags: tags || [],
+      images: images?.length ? images : ['https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=600'],
+    });
+
+    res.status(201).json({ success: true, product: { ...product.toObject(), id: product._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// PUT /api/products/:id
-router.put('/:id', authMiddleware, requireRole('seller', 'admin'), (req, res) => {
-  const idx = products.findIndex(p => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Product not found' });
-  if (req.user.role !== 'admin' && products[idx].sellerId !== req.user.id)
-    return res.status(403).json({ success: false, message: 'Not your product' });
-  const allowed = ['name','category','price','originalPrice','unit','stock','images','description','location','tags','status'];
-  allowed.forEach(key => { if (req.body[key] !== undefined) products[idx][key] = req.body[key]; });
-  res.json({ success: true, product: products[idx] });
+// ─── UPDATE PRODUCT ───────────────────────────────────────────────────────────
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    if (product.sellerId.toString() !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const allowed = ['name','category','price','originalPrice','unit','stock','description','location','tags','images','status'];
+    allowed.forEach(field => { if (req.body[field] !== undefined) product[field] = req.body[field]; });
+
+    await product.save();
+    res.json({ success: true, product: { ...product.toObject(), id: product._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// DELETE /api/products/:id
-router.delete('/:id', authMiddleware, requireRole('seller', 'admin'), (req, res) => {
-  const idx = products.findIndex(p => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ success: false, message: 'Product not found' });
-  if (req.user.role !== 'admin' && products[idx].sellerId !== req.user.id)
-    return res.status(403).json({ success: false, message: 'Not your product' });
-  products.splice(idx, 1);
-  res.json({ success: true, message: 'Deleted' });
-});
+// ─── ADD REVIEW ───────────────────────────────────────────────────────────────
+router.post('/:id/reviews', authMiddleware, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    if (!rating || !comment)
+      return res.status(400).json({ success: false, message: 'Rating and comment required' });
 
-// POST /api/products/:id/reviews
-router.post('/:id/reviews', authMiddleware, (req, res) => {
-  const product = products.find(p => p.id === req.params.id);
-  if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-  const { rating, comment } = req.body;
-  if (!rating || !comment) return res.status(400).json({ success: false, message: 'rating and comment required' });
-  const review = { id: newId(), productId: product.id, userId: req.user.id, userName: req.user.name, rating: Number(rating), comment, date: new Date().toISOString(), likes: 0 };
-  reviews.push(review);
-  // Recalculate rating
-  const productReviews = reviews.filter(r => r.productId === product.id);
-  product.rating = Math.round((productReviews.reduce((s, r) => s + r.rating, 0) / productReviews.length) * 10) / 10;
-  product.reviewCount = productReviews.length;
-  res.status(201).json({ success: true, review });
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    const review = await Review.create({
+      productId: req.params.id,
+      userId: req.user.id,
+      userName: req.user.name,
+      rating: Number(rating),
+      comment,
+    });
+
+    // Update product rating
+    const allReviews = await Review.find({ productId: req.params.id });
+    const avgRating = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+    product.rating = Math.round(avgRating * 10) / 10;
+    product.reviewCount = allReviews.length;
+    await product.save();
+
+    res.status(201).json({ success: true, review: { ...review.toObject(), id: review._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export default router;

@@ -12,6 +12,7 @@ import LandRental from './pages/LandRental';
 import Community from './pages/Community';
 import Subscription from './pages/Subscription';
 import Profile from './pages/Profile';
+import Cart from './pages/Cart';
 
 export const router = createBrowserRouter([
   {
@@ -118,4 +119,7 @@ export const router = createBrowserRouter([
     path: '/seller-profile/:id',
     Component: Profile,
   },
+  { path: '/cart', 
+    Component: Cart },
 ]);
+  
