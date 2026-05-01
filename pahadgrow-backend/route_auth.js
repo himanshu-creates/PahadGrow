@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { users, newId } from './data_store.js';
 
 const router = Router();
-const JWT_SECRET = "secret123"; // baad me env me daal dena
+const JWT_SECRET = process.env.JWT_SECRET || 'pahadgrow_secret_change_in_prod';
 
 // 🔑 LOGIN
 router.post('/login', async (req, res) => {
@@ -48,14 +48,14 @@ router.post('/login', async (req, res) => {
 // 📝 REGISTER
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone = '', role = 'buyer', village = '', district = '' } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'All fields required' });
+      return res.status(400).json({ success: false, message: 'Name, email and password required' });
     }
 
     if (users.find(u => u.email === email)) {
-      return res.status(409).json({ success: false, message: 'Email already exists' });
+      return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -65,14 +65,21 @@ router.post('/register', async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: 'buyer',
+      role: ['buyer', 'seller', 'landowner'].includes(role) ? role : 'buyer',
+      phone,
+      village,
+      district,
+      state: 'Uttarakhand',
+      avatar: '',
+      joinedDate: new Date().toISOString().split('T')[0],
+      bio: '',
       createdAt: new Date().toISOString()
     };
 
     users.push(newUser);
 
     const token = jwt.sign(
-      { id: newUser.id, role: newUser.role },
+      { id: newUser.id, role: newUser.role, name: newUser.name },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

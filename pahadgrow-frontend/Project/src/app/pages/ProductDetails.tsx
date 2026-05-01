@@ -1,70 +1,119 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router';
-import { ShoppingCart, Heart, MapPin, Star, ThumbsUp, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Heart, MapPin, ThumbsUp, MessageCircle, Loader2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { Rating } from '../components/Rating';
+import { getProduct, addToCart, toggleWishlist, addReview, isLoggedIn, Product, Review } from '../../api';
 
 export default function ProductDetails() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [wishlisted, setWishlisted] = useState(false);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [toast, setToast] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
-  const product = {
-    id: id,
-    name: 'Pure Himalayan Honey',
-    price: '₹450',
-    originalPrice: '₹600',
-    discount: '25% OFF',
-    images: [
-      'https://images.unsplash.com/photo-1645549826194-1956802d83c2?w=600',
-      'https://images.unsplash.com/photo-1645549826194-1956802d83c2?w=600',
-      'https://images.unsplash.com/photo-1645549826194-1956802d83c2?w=600',
-    ],
-    description: 'Premium quality pure honey sourced from the pristine Himalayan valleys. Our bees collect nectar from wild flowers at high altitudes, giving this honey its unique flavor and medicinal properties. Rich in antioxidants and completely natural.',
-    seller: {
-      name: 'Ramesh Negi',
-      village: 'Mukteshwar',
-      rating: 4.8,
-      totalProducts: 12,
-      image: 'https://images.unsplash.com/photo-1606203452426-f5af98e6f96e?w=200',
-    },
-    rating: 4.8,
-    reviews: 86,
-    inStock: true,
-    quantity: '500g',
+  // Review form
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (id) fetchProduct();
+  }, [id]);
+
+  const fetchProduct = async () => {
+    setLoading(true);
+    try {
+      const res = await getProduct(id!);
+      setProduct(res.product);
+      setReviews(res.reviews);
+    } catch {
+      // handle error
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const reviews = [
-    {
-      id: '1',
-      user: 'Priya Sharma',
-      rating: 5,
-      comment: 'Very fresh honey, good quality. The taste is amazing and you can tell it\'s pure.',
-      date: '2026-03-20',
-      likes: 12,
-    },
-    {
-      id: '2',
-      user: 'Rahul Kumar',
-      rating: 5,
-      comment: 'Excellent product! Best honey I have ever tasted. Will order again.',
-      date: '2026-03-18',
-      likes: 8,
-    },
-    {
-      id: '3',
-      user: 'Anjali Verma',
-      rating: 4,
-      comment: 'Good honey. Packaging could be better but the quality is great.',
-      date: '2026-03-15',
-      likes: 5,
-    },
-  ];
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  const handleAddToCart = async () => {
+    if (!isLoggedIn()) { showToast('Please login to add to cart'); return; }
+    setCartLoading(true);
+    try {
+      await addToCart(product!.id, quantity);
+      showToast('Added to cart! 🛒');
+    } catch {
+      showToast('Failed to add to cart');
+    } finally {
+      setCartLoading(false);
+    }
+  };
+
+  const handleWishlist = async () => {
+    if (!isLoggedIn()) { showToast('Please login'); return; }
+    try {
+      const res = await toggleWishlist(product!.id);
+      setWishlisted(res.wishlisted);
+      showToast(res.wishlisted ? 'Added to wishlist ❤️' : 'Removed from wishlist');
+    } catch {
+      showToast('Something went wrong');
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoggedIn()) { showToast('Please login to review'); return; }
+    setReviewLoading(true);
+    try {
+      const res = await addReview(product!.id, reviewRating, reviewComment);
+      setReviews(prev => [res.review, ...prev]);
+      setReviewComment('');
+      setReviewRating(5);
+      showToast('Review submitted! ⭐');
+    } catch {
+      showToast('Failed to submit review');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="animate-spin text-primary" size={48} />
+    </div>
+  );
+
+  if (!product) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">Product not found</h2>
+        <Link to="/marketplace" className="text-primary hover:underline">Back to Marketplace</Link>
+      </div>
+    </div>
+  );
+
+  const discount = product.originalPrice > product.price
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar isLoggedIn userRole="buyer" />
-      
+      <Navbar isLoggedIn={isLoggedIn()} userRole="buyer" />
+
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          {toast}
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -76,209 +125,226 @@ export default function ProductDetails() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
-          {/* Product Images */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
+          {/* Images */}
+          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
             <div className="bg-white rounded-xl overflow-hidden mb-4 shadow-sm border border-border">
-              <motion.img 
+              <motion.img
                 key={selectedImage}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                src={product.images[selectedImage]} 
-                alt={product.name} 
+                src={product.images?.[selectedImage] || 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=600'}
+                alt={product.name}
                 className="w-full h-96 object-cover"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {product.images.map((image, index) => (
-                <motion.button
-                  key={index}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedImage(index)}
-                  className={`rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedImage === index ? 'border-primary shadow-md' : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <img src={image} alt={`${product.name} ${index + 1}`} className="w-full h-24 object-cover" />
-                </motion.button>
-              ))}
-            </div>
+            {product.images?.length > 1 && (
+              <div className="grid grid-cols-4 gap-2">
+                {product.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === index ? 'border-primary shadow-md' : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <img src={image} alt={`${product.name} ${index + 1}`} className="w-full h-20 object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {/* Product Info */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-border hover:shadow-xl transition-shadow">
+          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-border">
               <h1 className="text-3xl font-bold text-foreground mb-2">{product.name}</h1>
-              
+
               <div className="flex items-center gap-3 mb-4">
                 <Rating rating={Math.round(product.rating)} size="md" />
-                <span className="text-muted-foreground">({product.reviews} reviews)</span>
+                <span className="text-muted-foreground">({reviews.length} reviews)</span>
               </div>
 
-              <div className="flex items-baseline gap-3 mb-6">
-                <span className="text-4xl font-bold text-primary">{product.price}</span>
-                <span className="text-xl text-muted-foreground line-through">{product.originalPrice}</span>
-                <span className="px-3 py-1 bg-accent/10 text-accent rounded-lg font-medium">{product.discount}</span>
+              <div className="flex items-baseline gap-3 mb-4">
+                <span className="text-4xl font-bold text-primary">₹{product.price}</span>
+                {discount > 0 && (
+                  <>
+                    <span className="text-xl text-muted-foreground line-through">₹{product.originalPrice}</span>
+                    <span className="px-3 py-1 bg-accent/10 text-accent rounded-lg font-medium">{discount}% OFF</span>
+                  </>
+                )}
               </div>
 
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Quantity</span>
-                  <span className="font-medium">{product.quantity}</span>
+              <div className="space-y-3 mb-5">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Unit</span>
+                  <span className="font-medium">{product.unit}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className={`font-medium ${product.inStock ? 'text-secondary' : 'text-destructive'}`}>
-                    {product.inStock ? 'In Stock' : 'Out of Stock'}
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Stock</span>
+                  <span className={`font-medium ${product.stock > 0 ? 'text-secondary' : 'text-destructive'}`}>
+                    {product.stock > 0 ? `${product.stock} available` : 'Out of Stock'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-2">
+                <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Location</span>
                   <span className="font-medium flex items-center gap-1">
-                    <MapPin size={16} />
-                    {product.seller.village}
+                    <MapPin size={14} />{product.location}
                   </span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Category</span>
+                  <span className="font-medium capitalize">{product.category}</span>
                 </div>
               </div>
 
-              <div className="flex gap-3 mb-6">
-                <motion.button 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 font-medium shadow-md"
+              {/* Quantity */}
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-sm font-medium text-muted-foreground">Quantity:</span>
+                <div className="flex items-center border border-border rounded-lg overflow-hidden">
+                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-2 hover:bg-muted transition-colors font-bold">−</button>
+                  <span className="px-4 py-2 font-semibold">{quantity}</span>
+                  <button onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} className="px-3 py-2 hover:bg-muted transition-colors font-bold">+</button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mb-4">
+                <motion.button
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={handleAddToCart}
+                  disabled={cartLoading || product.stock === 0}
+                  className="flex-1 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 font-medium shadow-md disabled:opacity-60"
                 >
-                  <ShoppingCart size={20} />
+                  {cartLoading ? <Loader2 size={18} className="animate-spin" /> : <ShoppingCart size={18} />}
                   Add to Cart
                 </motion.button>
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={handleWishlist}
                   className="px-6 py-3 border-2 border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors"
                 >
-                  <Heart size={20} />
+                  <Heart size={20} className={wishlisted ? 'fill-red-500 text-red-500' : ''} />
                 </motion.button>
               </div>
 
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors font-medium shadow-md"
+              <motion.button
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                onClick={handleAddToCart}
+                disabled={cartLoading || product.stock === 0}
+                className="w-full px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors font-medium shadow-md disabled:opacity-60"
               >
                 Buy Now
               </motion.button>
             </div>
 
             {/* Seller Info */}
-            <Link to={`/seller-profile/${product.seller.name}`} className="block bg-white rounded-xl p-6 shadow-lg border border-border mt-6 hover:shadow-xl transition-all hover:-translate-y-1">
-              <h3 className="font-semibold text-lg mb-4">Seller Information</h3>
-              <div className="flex items-center gap-4">
-                <img 
-                  src={product.seller.image} 
-                  alt={product.seller.name} 
-                  className="w-16 h-16 rounded-full object-cover border-2 border-primary"
-                />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-lg">{product.seller.name}</h4>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <MapPin size={14} />
-                    {product.seller.village}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Rating rating={Math.round(product.seller.rating)} size="sm" />
-                    <span className="text-sm text-muted-foreground">
-                      {product.seller.totalProducts} products
-                    </span>
-                  </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-border mt-6">
+              <h3 className="font-semibold text-lg mb-3">Seller Information</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-xl">
+                  {product.sellerName?.[0]}
                 </div>
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Contact
-                </motion.button>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-lg">{product.sellerName}</h4>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <MapPin size={14} />{product.sellerVillage}
+                  </p>
+                </div>
               </div>
-            </Link>
+            </div>
           </motion.div>
         </div>
 
-        {/* Product Description */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-border mb-8 hover:shadow-xl transition-shadow"
-        >
+        {/* Description */}
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-border mb-8">
           <h2 className="text-2xl font-semibold mb-4">Description</h2>
           <p className="text-muted-foreground leading-relaxed">{product.description}</p>
-        </motion.div>
+          {product.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {product.tags.map((tag, i) => (
+                <span key={i} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Reviews Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-border hover:shadow-xl transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Reviews ({product.reviews})</h2>
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Write Review
-            </motion.button>
-          </div>
-
-          <div className="space-y-6">
-            {reviews.map((review, index) => (
-              <motion.div 
-                key={review.id} 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.1 }}
-                className="pb-6 border-b border-border last:border-0 hover:bg-muted/30 p-4 rounded-lg transition-colors"
+        {/* Write Review */}
+        {isLoggedIn() && (
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-border mb-8">
+            <h2 className="text-xl font-semibold mb-4">Write a Review</h2>
+            <form onSubmit={handleReviewSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Your Rating</label>
+                <div className="flex gap-2">
+                  {[1,2,3,4,5].map(star => (
+                    <button key={star} type="button" onClick={() => setReviewRating(star)}>
+                      <Star size={28} className={star <= reviewRating ? 'fill-accent text-accent' : 'text-muted-foreground'} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Your Comment</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  rows={3}
+                  placeholder="Share your experience with this product..."
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={reviewLoading}
+                className="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-60 flex items-center gap-2"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-semibold">{review.user}</h4>
-                    <Rating rating={review.rating} size="sm" />
-                  </div>
-                  <span className="text-sm text-muted-foreground">{review.date}</span>
-                </div>
-                <p className="text-muted-foreground mb-3 leading-relaxed">{review.comment}</p>
-                <div className="flex items-center gap-4">
-                  <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ThumbsUp size={16} />
-                    <span>Helpful ({review.likes})</span>
-                  </motion.button>
-                  <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <MessageCircle size={16} />
-                    <span>Reply</span>
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))}
+                {reviewLoading && <Loader2 size={16} className="animate-spin" />}
+                Submit Review
+              </button>
+            </form>
           </div>
-        </motion.div>
+        )}
+
+        {/* Reviews */}
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-border">
+          <h2 className="text-2xl font-semibold mb-6">Reviews ({reviews.length})</h2>
+          {reviews.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No reviews yet. Be the first to review!</p>
+          ) : (
+            <div className="space-y-6">
+              {reviews.map((review, index) => (
+                <motion.div
+                  key={review.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="pb-6 border-b border-border last:border-0 p-4 rounded-lg hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="font-semibold">{review.userName}</h4>
+                      <Rating rating={review.rating} size="sm" />
+                    </div>
+                    <span className="text-sm text-muted-foreground">{new Date(review.date).toLocaleDateString('en-IN')}</span>
+                  </div>
+                  <p className="text-muted-foreground mt-2 leading-relaxed">{review.comment}</p>
+                  <div className="flex items-center gap-4 mt-3">
+                    <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+                      <ThumbsUp size={14} />
+                      <span>Helpful ({review.likes})</span>
+                    </button>
+                    <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+                      <MessageCircle size={14} />
+                      <span>Reply</span>
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

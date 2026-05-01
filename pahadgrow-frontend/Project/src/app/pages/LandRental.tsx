@@ -1,268 +1,170 @@
-import { MapPin, Search, Filter, Ruler, Users, Droplet, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Search, Ruler, Droplet, Zap, Loader2, Phone } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { getLandListings, isLoggedIn, LandListing } from '../../api';
 
 export default function LandRental() {
-  const lands = [
-    {
-      id: '1',
-      village: 'Mukteshwar',
-      district: 'Nainital',
-      area: '2.5 Acres',
-      price: '₹15,000/month',
-      image: 'https://images.unsplash.com/photo-1759593641759-93551a10e9fc?w=600',
-      suitableFor: ['Apples', 'Plums', 'Peaches'],
-      owner: 'Ramesh Negi',
-      waterAvailability: 'Yes',
-      electricity: 'Yes',
-    },
-    {
-      id: '2',
-      village: 'Almora',
-      district: 'Almora',
-      area: '1.8 Acres',
-      price: '₹12,000/month',
-      image: 'https://images.unsplash.com/photo-1759593641759-93551a10e9fc?w=600',
-      suitableFor: ['Wheat', 'Barley', 'Potatoes'],
-      owner: 'Sunita Rawat',
-      waterAvailability: 'Yes',
-      electricity: 'No',
-    },
-    {
-      id: '3',
-      village: 'Pithoragarh',
-      district: 'Pithoragarh',
-      area: '3.0 Acres',
-      price: '₹18,000/month',
-      image: 'https://images.unsplash.com/photo-1759593641759-93551a10e9fc?w=600',
-      suitableFor: ['Herbs', 'Medicinal Plants', 'Vegetables'],
-      owner: 'Vijay Singh',
-      waterAvailability: 'Yes',
-      electricity: 'Yes',
-    },
-    {
-      id: '4',
-      village: 'Ranikhet',
-      district: 'Almora',
-      area: '2.2 Acres',
-      price: '₹14,000/month',
-      image: 'https://images.unsplash.com/photo-1759593641759-93551a10e9fc?w=600',
-      suitableFor: ['Vegetables', 'Flowers', 'Herbs'],
-      owner: 'Meena Bisht',
-      waterAvailability: 'Yes',
-      electricity: 'Yes',
-    },
-  ];
+  const [lands, setLands] = useState<LandListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [district, setDistrict] = useState('');
+  const [toast, setToast] = useState('');
 
-  const districts = ['All Districts', 'Nainital', 'Almora', 'Pithoragarh', 'Dehradun', 'Haridwar', 'Tehri', 'Chamoli', 'Uttarkashi'];
-  const landSizes = ['All Sizes', 'Under 1 Acre', '1-2 Acres', '2-3 Acres', 'Above 3 Acres'];
-  const cropTypes = ['All Crops', 'Fruits', 'Vegetables', 'Herbs', 'Grains', 'Medicinal Plants'];
+  const districts = ['All Districts', 'Nainital', 'Almora', 'Pithoragarh', 'Chamoli', 'Uttarkashi', 'Dehradun', 'Tehri'];
+
+  useEffect(() => { fetchLands(); }, [district, search]);
+
+  const fetchLands = async () => {
+    setLoading(true);
+    try {
+      const res = await getLandListings({
+        district: district && district !== 'All Districts' ? district : undefined,
+        search: search || undefined,
+      });
+      setLands(res.lands);
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  const handleContact = (land: LandListing) => {
+    if (!isLoggedIn()) {
+      showToast('Please login to contact owner');
+      return;
+    }
+    showToast(`Contacting ${land.ownerName}... Feature coming soon!`);
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar isLoggedIn userRole="buyer" />
-      
+      <Navbar isLoggedIn={isLoggedIn()} userRole="buyer" />
+
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          {toast}
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-4">Land Rental Marketplace</h1>
-          <p className="text-lg text-muted-foreground">Find and rent agricultural land in Uttarakhand</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Land Rental</h1>
+          <p className="text-lg text-muted-foreground">Rent fertile Himalayan land for your farming needs</p>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
-            <input
-              type="text"
-              placeholder="Search by village, district, or crop type..."
-              className="w-full pl-12 pr-4 py-4 bg-white border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none shadow-sm text-foreground"
-            />
-          </div>
-        </div>
-
-        {/* List Your Land CTA */}
-        <div className="bg-gradient-to-r from-primary to-secondary text-white rounded-xl p-8 mb-8 shadow-lg">
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-bold mb-3">Have Land to Rent?</h2>
-            <p className="mb-6 opacity-90">
-              List your agricultural land and earn passive income while helping other farmers grow
-            </p>
-            <button className="px-6 py-3 bg-white text-primary rounded-lg hover:bg-white/90 transition-colors font-medium shadow-md">
-              List Your Land
-            </button>
-          </div>
-        </div>
-
-        {/* Filters Section */}
-        <div className="bg-white rounded-xl p-6 shadow-md border border-border mb-8">
-          <div className="flex items-center gap-2 mb-5">
-            <Filter className="text-primary" size={20} />
-            <h3 className="text-lg font-bold text-foreground">Filters</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* District Filter */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-3">District</label>
-              <div className="flex flex-wrap gap-2">
-                {districts.slice(0, 5).map((district, index) => (
-                  <button
-                    key={index}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      index === 0
-                        ? 'bg-primary text-white border border-primary'
-                        : 'bg-white text-[#374151] border border-[#D1D5DB] hover:bg-[#2E7D32] hover:text-white hover:border-[#2E7D32]'
-                    }`}
-                  >
-                    {district}
-                  </button>
-                ))}
-              </div>
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-md border border-border p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+              <input
+                type="text"
+                placeholder="Search by village, crops..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              />
             </div>
-
-            {/* Land Size Filter */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-3">Land Size</label>
-              <div className="flex flex-wrap gap-2">
-                {landSizes.map((size, index) => (
-                  <button
-                    key={index}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      index === 0
-                        ? 'bg-primary text-white border border-primary'
-                        : 'bg-white text-[#374151] border border-[#D1D5DB] hover:bg-[#2E7D32] hover:text-white hover:border-[#2E7D32]'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Crop Type Filter */}
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-3">Crop Type</label>
-              <div className="flex flex-wrap gap-2">
-                {cropTypes.map((crop, index) => (
-                  <button
-                    key={index}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      index === 0
-                        ? 'bg-primary text-white border border-primary'
-                        : 'bg-white text-[#374151] border border-[#D1D5DB] hover:bg-[#2E7D32] hover:text-white hover:border-[#2E7D32]'
-                    }`}
-                  >
-                    {crop}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <select
+              value={district}
+              onChange={e => setDistrict(e.target.value)}
+              className="px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary outline-none bg-white min-w-[180px]"
+            >
+              {districts.map(d => <option key={d} value={d === 'All Districts' ? '' : d}>{d}</option>)}
+            </select>
           </div>
         </div>
 
-        {/* Uttarakhand Map Section */}
-        <div className="bg-white rounded-xl p-8 shadow-md border border-border mb-8">
-          <h3 className="text-2xl font-bold text-foreground mb-6">Explore by District</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {['Dehradun', 'Haridwar', 'Tehri', 'Uttarkashi', 'Chamoli', 'Rudraprayag', 'Pauri', 'Almora', 'Nainital', 'Pithoragarh', 'Champawat', 'Bageshwar', 'Udham Singh Nagar'].map((district, index) => (
-              <button
-                key={index}
-                className="px-4 py-3 bg-primary/5 border border-primary/30 rounded-lg text-foreground font-medium hover:bg-primary hover:text-white transition-all"
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="animate-spin text-primary" size={40} />
+          </div>
+        ) : lands.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-border shadow-sm">
+            <MapPin size={40} className="text-muted-foreground mx-auto mb-3" />
+            <h3 className="text-xl font-bold mb-2">No land listings found</h3>
+            <p className="text-muted-foreground">Try adjusting your filters</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {lands.map((land, i) => (
+              <motion.div
+                key={land.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.07 }}
+                className="bg-white rounded-xl shadow-sm border border-border overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 group"
               >
-                {district}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Land Cards Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {lands.map((land) => (
-            <div key={land.id} className="bg-white rounded-xl shadow-md border border-border overflow-hidden hover:shadow-xl transition-all">
-              <div className="md:flex">
-                {/* Image */}
-                <div className="md:w-2/5">
-                  <img 
-                    src={land.image} 
-                    alt={land.village} 
-                    className="w-full h-full object-cover min-h-[250px]"
+                <div className="relative overflow-hidden">
+                  <img
+                    src={land.image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600'}
+                    alt={land.village}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
                   />
+                  <div className="absolute top-3 right-3">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${land.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {land.status}
+                    </span>
+                  </div>
                 </div>
-                
-                {/* Content */}
-                <div className="md:w-3/5 p-6">
-                  <div className="flex items-start justify-between mb-4">
+
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="text-2xl font-bold text-foreground mb-1">{land.village}</h3>
-                      <p className="text-muted-foreground flex items-center gap-1.5">
-                        <MapPin size={16} />
-                        {land.district} District
+                      <h3 className="font-bold text-lg">{land.village}</h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <MapPin size={13} />{land.district}, Uttarakhand
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{land.price}</p>
+                      <p className="font-bold text-primary text-lg">₹{land.price.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">/{land.priceUnit}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-3 mb-5">
-                    {/* Area */}
-                    <div className="flex items-center gap-2">
-                      <Ruler className="text-primary" size={18} />
-                      <span className="font-semibold text-foreground">Area:</span>
-                      <span className="text-muted-foreground">{land.area}</span>
-                    </div>
-                    
-                    {/* Owner */}
-                    <div className="flex items-center gap-2">
-                      <Users className="text-primary" size={18} />
-                      <span className="font-semibold text-foreground">Owner:</span>
-                      <span className="text-muted-foreground">{land.owner}</span>
-                    </div>
-
-                    {/* Suitable For */}
-                    <div>
-                      <span className="font-semibold text-foreground">Suitable for:</span>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {land.suitableFor.map((crop, index) => (
-                          <span key={index} className="px-3 py-1.5 bg-tag-bg text-primary rounded-full text-sm font-medium border border-primary/20">
-                            {crop}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Amenities */}
-                    <div className="flex gap-4 pt-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-full ${land.waterAvailability === 'Yes' ? 'bg-secondary/20' : 'bg-muted'}`}>
-                          <Droplet className={land.waterAvailability === 'Yes' ? 'text-secondary' : 'text-muted-foreground'} size={16} />
-                        </div>
-                        <span className="text-sm font-medium text-foreground">Water</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-full ${land.electricity === 'Yes' ? 'bg-accent/20' : 'bg-muted'}`}>
-                          <Zap className={land.electricity === 'Yes' ? 'text-accent' : 'text-muted-foreground'} size={16} />
-                        </div>
-                        <span className="text-sm font-medium text-foreground">Electricity</span>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Ruler size={14} />{land.area}
+                    </span>
+                    <span className={`flex items-center gap-1 ${land.water ? 'text-blue-600' : 'text-muted-foreground'}`}>
+                      <Droplet size={14} />Water {land.water ? '✓' : '✗'}
+                    </span>
+                    <span className={`flex items-center gap-1 ${land.electricity ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                      <Zap size={14} />Power {land.electricity ? '✓' : '✗'}
+                    </span>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <button className="flex-1 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-[#2E7D32] transition-colors font-medium shadow-sm">
-                      View Details
-                    </button>
-                    <button className="px-5 py-2.5 border-2 border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors font-medium">
-                      Contact Owner
+                  {land.suitableFor?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {land.suitableFor.map((crop, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-medium">
+                          {crop}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <span className="text-sm text-muted-foreground">Owner: <span className="font-medium text-foreground">{land.ownerName}</span></span>
+                    <button
+                      onClick={() => handleContact(land)}
+                      disabled={land.status !== 'available'}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-800 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      <Phone size={14} />
+                      Contact
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
       <Footer />
     </div>

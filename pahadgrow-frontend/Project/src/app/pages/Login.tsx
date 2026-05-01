@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Mail, Lock, Phone, User, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Phone, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { useLanguage } from '../contexts/LanguageContext';
+import { login, register } from '../../api';
 import logo from "../../assets/placeholder.png";
 
 export default function Login() {
@@ -12,15 +13,37 @@ export default function Login() {
   const [isSignup, setIsSignup] = useState(false);
   const [role, setRole] = useState<'buyer' | 'seller' | 'landowner' | 'admin'>('buyer');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'admin') {
-      navigate('/admin');
-    } else if (role === 'seller' || role === 'landowner') {
-      navigate('/seller');
-    } else {
-      navigate('/dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isSignup) {
+        await register({ name, email, password, phone, role });
+      } else {
+        await login(email, password);
+      }
+
+      const storedUser = JSON.parse(localStorage.getItem('pg_user') || '{}');
+      const userRole = storedUser.role || role;
+
+      if (userRole === 'admin') navigate('/admin');
+      else if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
+      else navigate('/dashboard');
+
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,7 +66,6 @@ export default function Login() {
             transition={{ duration: 0.5 }}
             className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
           >
-            {/* Top Green Strip */}
             <div className="h-1.5 bg-gradient-to-r from-green-700 via-green-500 to-green-700" />
 
             <div className="p-8">
@@ -72,10 +94,27 @@ export default function Login() {
                   <p className="text-gray-500 text-sm mt-1">
                     {isSignup ? t('auth.joinToday') : t('auth.loginToContinue')}
                   </p>
+                  {!isSignup && (
+                    <p className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1.5 mt-2 border border-green-200">
+                      Demo: buyer@demo.com / seller@demo.com / admin@demo.com · password: demo123
+                    </p>
+                  )}
                 </motion.div>
               </AnimatePresence>
 
-              {/* Role Selection - show for both login and signup */}
+              {/* Error */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700"
+                >
+                  <AlertCircle size={16} />
+                  {error}
+                </motion.div>
+              )}
+
+              {/* Role Selection */}
               <div className="mb-5">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {t('auth.iAm')}
@@ -108,6 +147,8 @@ export default function Login() {
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                       <input
                         type="text"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
                         placeholder="Your full name"
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
                         required
@@ -123,6 +164,8 @@ export default function Login() {
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
                       placeholder="you@example.com"
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
                       required
@@ -138,9 +181,10 @@ export default function Login() {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                       <input
                         type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
                         placeholder="+91 98765 43210"
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
-                        required
                       />
                     </div>
                   </div>
@@ -153,6 +197,8 @@ export default function Login() {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
                       placeholder="••••••••"
                       className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-sm"
                       required
@@ -167,7 +213,7 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Remember Me / Forgot Password */}
+                {/* Remember / Forgot */}
                 {!isSignup && (
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -183,9 +229,17 @@ export default function Login() {
                 {/* Submit */}
                 <button
                   type="submit"
-                  className="w-full py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all font-semibold shadow-sm hover:shadow-md mt-1"
+                  disabled={loading}
+                  className="w-full py-3 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-all font-semibold shadow-sm hover:shadow-md mt-1 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isSignup ? t('auth.signup') : t('auth.login')}
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {isSignup ? 'Creating Account...' : 'Logging in...'}
+                    </>
+                  ) : (
+                    isSignup ? t('auth.signup') : t('auth.login')
+                  )}
                 </button>
               </form>
 
@@ -218,7 +272,7 @@ export default function Login() {
                 {isSignup ? t('auth.alreadyAccount') : t('auth.noAccount')}{' '}
                 <button
                   type="button"
-                  onClick={() => setIsSignup(!isSignup)}
+                  onClick={() => { setIsSignup(!isSignup); setError(''); }}
                   className="text-green-700 hover:underline font-semibold"
                 >
                   {isSignup ? t('auth.login') : t('auth.signup')}
