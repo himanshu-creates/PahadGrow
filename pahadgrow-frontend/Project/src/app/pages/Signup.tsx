@@ -4,14 +4,14 @@ import { Mail, Lock, Phone, User, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { motion } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { register } from '../../api';
+import { useAuth } from '../contexts/AuthContext';
 import logo from '../../assets/placeholder.png';
 
-// SECURITY: Admin role is intentionally excluded from the public role options.
-// Admins are created only via POST /api/auth/create-admin with a secret key.
 type PublicRole = 'buyer' | 'seller' | 'landowner';
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +31,8 @@ export default function Signup() {
     setLoading(true);
     try {
       const data = await register({ name, email, password, phone, role });
+      setToken(data.token);
+      setUser(data.user);
       const userRole = data.user.role;
       if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
       else navigate('/dashboard');
@@ -41,11 +43,10 @@ export default function Signup() {
     }
   };
 
-  // ─── SECURITY: No 'admin' option here ────────────────────────────────────
   const roleOptions: { value: PublicRole; label: string; emoji: string; desc: string }[] = [
-    { value: 'buyer',     label: 'Buyer',           emoji: '🛒', desc: 'Want to buy products' },
-    { value: 'seller',    label: 'Seller (Farmer)',  emoji: '🌾', desc: 'Want to sell products' },
-    { value: 'landowner', label: 'Land Owner',       emoji: '🏔️', desc: 'Want to rent land' },
+    { value: 'buyer',     label: 'Buyer',          emoji: '🛒', desc: 'Want to buy products' },
+    { value: 'seller',    label: 'Seller (Farmer)', emoji: '🌾', desc: 'Want to sell products' },
+    { value: 'landowner', label: 'Land Owner',      emoji: '🏔️', desc: 'Want to rent land' },
   ];
 
   return (

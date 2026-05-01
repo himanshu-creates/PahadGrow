@@ -2,17 +2,19 @@ import mongoose from 'mongoose';
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
-  name:       { type: String, required: true, trim: true },
-  email:      { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password:   { type: String, required: true },
-  role:       { type: String, enum: ['buyer', 'seller', 'landowner', 'admin'], default: 'buyer' },
-  phone:      { type: String, default: '' },
-  village:    { type: String, default: '' },
-  district:   { type: String, default: '' },
-  state:      { type: String, default: 'Uttarakhand' },
-  avatar:     { type: String, default: '' },
-  bio:        { type: String, default: '' },
-  joinedDate: { type: String, default: () => new Date().toISOString().split('T')[0] },
+  name:           { type: String, required: true, trim: true },
+  email:          { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:       { type: String, required: true },
+  role:           { type: String, enum: ['buyer', 'seller', 'landowner', 'admin'], default: 'buyer' },
+  phone:          { type: String, default: '' },
+  village:        { type: String, default: '' },
+  district:       { type: String, default: '' },
+  state:          { type: String, default: 'Uttarakhand' },
+  avatar:         { type: String, default: '' },
+  bio:            { type: String, default: '' },
+  joinedDate:     { type: String, default: () => new Date().toISOString().split('T')[0] },
+  resetOTP:       { type: String, default: '' },       // ✅ NEW
+  resetOTPExpiry: { type: Date, default: null },        // ✅ NEW
 }, { timestamps: true });
 
 // ─── Product ──────────────────────────────────────────────────────────────────

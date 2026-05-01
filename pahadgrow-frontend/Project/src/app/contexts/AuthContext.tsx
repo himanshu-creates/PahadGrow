@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface User {
   id: string;
@@ -20,6 +20,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
   setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
   logout: () => void;
 }
 
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoggedIn: false,
   isAdmin: false,
   setUser: () => {},
+  setToken: () => {},
   logout: () => {},
 });
 
@@ -42,7 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const token = localStorage.getItem('pg_token');
+  const [token, setTokenState] = useState<string | null>(() => {
+    return localStorage.getItem('pg_token');
+  });
 
   const setUser = (u: User | null) => {
     setUserState(u);
@@ -50,8 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem('pg_user');
   };
 
+  const setToken = (t: string | null) => {
+    setTokenState(t);
+    if (t) localStorage.setItem('pg_token', t);
+    else localStorage.removeItem('pg_token');
+  };
+
   const logout = () => {
     setUserState(null);
+    setTokenState(null);
     localStorage.removeItem('pg_token');
     localStorage.removeItem('pg_user');
   };
@@ -63,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoggedIn: !!user && !!token,
       isAdmin: user?.role === 'admin',
       setUser,
+      setToken,
       logout,
     }}>
       {children}
