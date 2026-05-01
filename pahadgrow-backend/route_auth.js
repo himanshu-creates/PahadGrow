@@ -5,16 +5,15 @@ import { User } from './models.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'pahadgrow_secret_change_in_prod';
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'pahadgrow_admin_secret_change_this';
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
-    // ✅ FIX: Log request body in dev to debug empty body issues
     console.log('Login attempt:', { email: req.body?.email });
 
     const { email, password } = req.body;
 
-    // ✅ FIX: Explicit check for missing body fields
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password required' });
     }
@@ -48,6 +47,8 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
+// SECURITY: 'admin' role is NOT allowed through public signup.
+// Only buyer, seller, landowner are valid public roles.
 router.post('/register', async (req, res) => {
   try {
     console.log('Register attempt:', { email: req.body?.email, name: req.body?.name });
@@ -75,14 +76,18 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
-    const validRoles = ['buyer', 'seller', 'landowner', 'admin'];
+    // SECURITY FIX: Admin role is BLOCKED in public registration.
+    // 'admin' is silently converted to 'buyer' as a defense-in-depth measure.
+    const publicRoles = ['buyer', 'seller', 'landowner'];
+    const safeRole = publicRoles.includes(role) ? role : 'buyer';
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      role: validRoles.includes(role) ? role : 'buyer',
+      role: safeRole,
       phone,
       village,
       district,
@@ -97,12 +102,11 @@ router.post('/register', async (req, res) => {
     const { password: _, ...safeUser } = user.toObject();
     safeUser.id = safeUser._id;
 
-    console.log('Register success for:', email);
+    console.log('Register success for:', email, 'role:', safeRole);
     res.status(201).json({ success: true, token, user: safeUser });
 
   } catch (err) {
     console.error('Register error:', err);
-    // ✅ FIX: Return specific MongoDB duplicate key error message
     if (err.code === 11000) {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
@@ -133,6 +137,60 @@ router.get('/me', async (req, res) => {
   } catch (err) {
     console.error('Get me error:', err);
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
+});
+
+// ─── CREATE ADMIN (Protected by Secret Key) ───────────────────────────────────
+// This is the ONLY legitimate way to create an admin account.
+// Requires a secret key from .env: ADMIN_SECRET_KEY
+// Usage: POST /api/auth/create-admin
+//        Headers: x-admin-secret: <your secret key>
+//        Body: { name, email, password }
+router.post('/create-admin', async (req, res) => {
+  try {
+    const providedSecret = req.headers['x-admin-secret'];
+
+    if (!providedSecret || providedSecret !== ADMIN_SECRET_KEY) {
+      // Log unauthorized attempts
+      console.warn('Unauthorized admin creation attempt from IP:', req.ip);
+      return res.status(403).json({ success: false, message: 'Invalid admin secret key' });
+    }
+
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email and password required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Admin password must be at least 8 characters' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      // If user exists, upgrade them to admin
+      existing.role = 'admin';
+      await existing.save();
+      console.log('Upgraded existing user to admin:', email);
+      const { password: _, ...safeUser } = existing.toObject();
+      return res.json({ success: true, message: 'User upgraded to admin', user: { ...safeUser, id: safeUser._id } });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      role: 'admin',
+    });
+
+    console.log('Admin created successfully:', email);
+    const { password: _, ...safeUser } = user.toObject();
+    res.status(201).json({ success: true, message: 'Admin account created', user: { ...safeUser, id: safeUser._id } });
+
+  } catch (err) {
+    console.error('Create admin error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

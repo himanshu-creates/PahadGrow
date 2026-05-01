@@ -6,6 +6,10 @@ import { Navbar } from '../components/Navbar';
 import { register } from '../../api';
 import logo from '../../assets/placeholder.png';
 
+// SECURITY: Admin role is intentionally excluded from the public role options.
+// Admins are created only via POST /api/auth/create-admin with a secret key.
+type PublicRole = 'buyer' | 'seller' | 'landowner';
+
 export default function Signup() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -15,7 +19,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'landowner' | 'admin'>('buyer');
+  const [role, setRole] = useState<PublicRole>('buyer');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +32,7 @@ export default function Signup() {
     try {
       const data = await register({ name, email, password, phone, role });
       const userRole = data.user.role;
-      if (userRole === 'admin') navigate('/admin');
-      else if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
+      if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
       else navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.');
@@ -38,11 +41,11 @@ export default function Signup() {
     }
   };
 
-  const roleOptions = [
-    { value: 'buyer', label: 'Buyer', emoji: '🛒', desc: 'Want to buy products' },
-    { value: 'seller', label: 'Seller (Farmer)', emoji: '🌾', desc: 'Want to sell products' },
-    { value: 'landowner', label: 'Land Owner', emoji: '🏔️', desc: 'Want to rent land' },
-    { value: 'admin', label: 'Admin', emoji: '⚙️', desc: 'Manage the platform' },
+  // ─── SECURITY: No 'admin' option here ────────────────────────────────────
+  const roleOptions: { value: PublicRole; label: string; emoji: string; desc: string }[] = [
+    { value: 'buyer',     label: 'Buyer',           emoji: '🛒', desc: 'Want to buy products' },
+    { value: 'seller',    label: 'Seller (Farmer)',  emoji: '🌾', desc: 'Want to sell products' },
+    { value: 'landowner', label: 'Land Owner',       emoji: '🏔️', desc: 'Want to rent land' },
   ];
 
   return (
@@ -99,12 +102,12 @@ export default function Signup() {
                   transition={{ delay: 0.25 }}
                 >
                   <label className="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {roleOptions.map((option, i) => (
                       <motion.button
                         key={option.value}
                         type="button"
-                        onClick={() => setRole(option.value as any)}
+                        onClick={() => setRole(option.value)}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                         initial={{ opacity: 0, y: 10 }}

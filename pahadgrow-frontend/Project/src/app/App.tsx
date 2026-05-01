@@ -4,6 +4,7 @@ import { router } from './routes';
 import { LoadingScreen } from './components/LoadingScreen';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
+import { AuthProvider } from './contexts/AuthContext';
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -20,9 +21,12 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
-      <LanguageSelectionModal />
-      <RouterProvider router={router} />
-    </LanguageProvider>
+    // AuthProvider MUST wrap everything so ProtectedRoute can access auth state
+    <AuthProvider>
+      <LanguageProvider>
+        <LanguageSelectionModal />
+        <RouterProvider router={router} />
+      </LanguageProvider>
+    </AuthProvider>
   );
 }

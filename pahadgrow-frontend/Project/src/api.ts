@@ -25,7 +25,6 @@ async function request<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const url = `${BASE_URL}${path}`;
-
   const res = await fetch(url, { ...options, headers });
 
   const contentType = res.headers.get('content-type') || '';
@@ -34,7 +33,6 @@ async function request<T>(
   }
 
   const data = await res.json();
-
   if (!res.ok) {
     throw new Error(data.message || `HTTP ${res.status}`);
   }
@@ -291,4 +289,70 @@ export async function createCommunityPost(question: string, content: string, tag
 
 export async function likePost(postId: string) {
   return request<{ likes: number }>(`/users/community/${postId}/like`, { method: 'POST' });
+}
+
+// ─── Admin APIs ───────────────────────────────────────────────────────────────
+export async function adminGetStats() {
+  return request<any>('/admin/stats');
+}
+
+export async function adminGetUsers(params?: {
+  page?: number; limit?: number; role?: string; search?: string;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.role) q.set('role', params.role);
+  if (params?.search) q.set('search', params.search);
+  return request<any>(`/admin/users?${q}`);
+}
+
+export async function adminDeleteUser(userId: string) {
+  return request<{ success: boolean; message: string }>(`/admin/users/${userId}`, { method: 'DELETE' });
+}
+
+export async function adminUpdateUserRole(userId: string, role: string) {
+  return request<any>(`/admin/users/${userId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function adminGetProducts(params?: {
+  page?: number; limit?: number; status?: string; search?: string;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.status) q.set('status', params.status);
+  if (params?.search) q.set('search', params.search);
+  return request<any>(`/admin/products?${q}`);
+}
+
+export async function adminDeleteProduct(productId: string) {
+  return request<{ success: boolean; message: string }>(`/admin/products/${productId}`, { method: 'DELETE' });
+}
+
+export async function adminUpdateProductStatus(productId: string, status: string) {
+  return request<any>(`/admin/products/${productId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function adminGetOrders(params?: {
+  page?: number; limit?: number; status?: string;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.status) q.set('status', params.status);
+  return request<any>(`/admin/orders?${q}`);
+}
+
+export async function adminUpdateOrderStatus(orderId: string, status: string) {
+  return request<any>(`/admin/orders/${orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }
