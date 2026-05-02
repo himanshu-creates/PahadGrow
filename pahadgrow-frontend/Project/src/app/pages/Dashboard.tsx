@@ -72,7 +72,11 @@ export default function Dashboard() {
   });
 
   // ─── Fetch ──────────────────────────────────────────────────────────────
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    const token = localStorage.getItem('pg_token');
+    if (!token) { navigate('/login'); return; }
+    fetchAll();
+  }, []);
 
   // Sync profile form when user loads
   useEffect(() => {
@@ -87,6 +91,12 @@ export default function Dashboard() {
   }, [user]);
 
   const fetchAll = async () => {
+    // Agar token hi nahi hai to login pe bhejo
+    const token = localStorage.getItem('pg_token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
     setLoading(true);
     setError('');
     try {

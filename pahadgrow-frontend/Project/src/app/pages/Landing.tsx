@@ -18,14 +18,14 @@ export default function Landing() {
 
   const handleStartSelling = () => {
     if (isLoggedIn) {
-      // Already logged in — go directly to seller dashboard or prompt to become seller
       if (user?.role === 'seller' || user?.role === 'landowner' || user?.role === 'admin') {
         navigate('/seller');
       } else {
+        // Buyer hai — dashboard ke profile tab pe le jao jahan role upgrade ho sake
         navigate('/dashboard');
       }
     } else {
-      navigate('/login');
+      navigate('/signup');
     }
   };
   const [heroText, setHeroText] = useState(0);
@@ -228,8 +228,10 @@ export default function Landing() {
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70 z-10"></div>
           <img 
-            src="https://images.unsplash.com/photo-1650120198224-5d00194be971?w=1920" 
-            alt="Uttarakhand Mountains" 
+            src={isLoggedIn
+              ? "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=1920"
+              : "https://images.unsplash.com/photo-1650120198224-5d00194be971?w=1920"}
+            alt="Uttarakhand" 
             className="w-full h-full object-cover"
           />
         </div>
@@ -263,19 +265,23 @@ export default function Landing() {
             transition={{ delay: 0.5, duration: 0.8 }}
             className="flex flex-wrap gap-4 justify-center mt-8"
           >
-            <button 
-              onClick={handleStartSelling}
-              className="group px-8 py-4 bg-primary text-white rounded-xl hover:bg-[#2E7D32] hover:shadow-2xl transition-all flex items-center gap-2 font-semibold hover:scale-105 shadow-lg"
-            >
-              {t('hero.startSelling')} 
-              <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-            <Link 
-              to="/marketplace" 
-              className="px-8 py-4 bg-white/20 backdrop-blur-md text-white border-2 border-white/30 rounded-xl hover:bg-white/30 transition-all font-semibold hover:scale-105"
-            >
-              {t('hero.explore')}
-            </Link>
+            {!isLoggedIn && (
+              <>
+                <button
+                  onClick={handleStartSelling}
+                  className="group px-8 py-4 bg-primary text-white rounded-xl hover:bg-[#2E7D32] hover:shadow-2xl transition-all flex items-center gap-2 font-semibold hover:scale-105 shadow-lg"
+                >
+                  {t('hero.startSelling')}
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+                <Link
+                  to="/marketplace"
+                  className="px-8 py-4 bg-white/20 backdrop-blur-md text-white border-2 border-white/30 rounded-xl hover:bg-white/30 transition-all font-semibold hover:scale-105"
+                >
+                  {t('hero.explore')}
+                </Link>
+              </>
+            )}
           </motion.div>
         </div>
       </section>
@@ -683,15 +689,17 @@ export default function Landing() {
             <h2 className="text-5xl font-bold mb-6">Ready to Transform Your Future?</h2>
             <p className="text-2xl mb-8 opacity-90">Join 5000+ farmers already earning with PahadGrow</p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <button 
-                onClick={handleStartSelling}
-                className="group inline-flex items-center gap-2 px-10 py-5 bg-white text-primary rounded-xl hover:bg-white/90 transition-all font-bold shadow-2xl hover:scale-105 text-lg"
-              >
-                Get Started Today 
-                <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-              </button>
-              <Link 
-                to="/subscription" 
+              {!isLoggedIn && (
+                <button
+                  onClick={handleStartSelling}
+                  className="group inline-flex items-center gap-2 px-10 py-5 bg-white text-primary rounded-xl hover:bg-white/90 transition-all font-bold shadow-2xl hover:scale-105 text-lg"
+                >
+                  Get Started Today
+                  <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+                </button>
+              )}
+              <Link
+                to="/subscription"
                 className="inline-flex items-center gap-2 px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white rounded-xl hover:bg-white/20 transition-all font-bold text-lg hover:scale-105"
               >
                 View Plans

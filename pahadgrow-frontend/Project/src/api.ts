@@ -14,38 +14,56 @@ function clearToken() {
   localStorage.removeItem('pg_user');
 }
 
+// Public request — login/register ke liye (token nahi chahiye)
+async function publicRequest<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+  const url = `${BASE_URL}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch {
+    throw new Error('Backend se connection nahi ho raha. Kya backend port 4000 pe chal raha hai?');
+  }
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Server ne JSON nahi bheja (status ${res.status}). Check karo: ${url}`);
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
+}
+
+// Private request — baaki sab ke liye (token zaroori)
 async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  if (!token) throw new Error('Login karein pehle — koi token nahi mila.');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
+    'Authorization': `Bearer ${token}`,
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
   const url = `${BASE_URL}${path}`;
-
   let res: Response;
   try {
     res = await fetch(url, { ...options, headers });
-  } catch (networkErr) {
+  } catch {
     throw new Error('Backend se connection nahi ho raha. Kya backend port 4000 pe chal raha hai?');
   }
-
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    throw new Error(
-      `Server ne JSON nahi bheja (status ${res.status}). ` +
-      `Check karo ki backend chal raha hai aur route sahi hai: ${url}`
-    );
+    throw new Error(`Server ne JSON nahi bheja (status ${res.status}). Check karo: ${url}`);
   }
-
   const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
 }
 
@@ -65,7 +83,7 @@ export interface User {
 }
 
 export async function login(email: string, password: string) {
-  const data = await request<{ token: string; user: User }>('/auth/login', {
+  const data = await publicRequest<{ token: string; user: User }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -78,7 +96,7 @@ export async function register(payload: {
   name: string; email: string; password: string;
   phone?: string; role: string; village?: string; district?: string;
 }) {
-  const data = await request<{ token: string; user: User }>('/auth/register', {
+  const data = await publicRequest<{ token: string; user: User }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -110,7 +128,7 @@ export async function getMe() {
 
 // ─── OTP / Forgot Password ────────────────────────────────────────────────────
 export async function sendOTP(email: string): Promise<{ success: boolean; message: string }> {
-  return request('/auth/send-otp', {
+  return publicRequest('/auth/send-otp', {
     method: 'POST',
     body: JSON.stringify({ email }),
   });
@@ -120,7 +138,7 @@ export async function verifyOTP(
   email: string,
   otp: string
 ): Promise<{ success: boolean; resetToken: string }> {
-  return request('/auth/verify-otp', {
+  return publicRequest('/auth/verify-otp', {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
@@ -130,7 +148,7 @@ export async function resetPassword(
   resetToken: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
-  return request('/auth/reset-password', {
+  return publicRequest('/auth/reset-password', {
     method: 'POST',
     body: JSON.stringify({ resetToken, newPassword }),
   });
@@ -301,7 +319,6 @@ export async function getLandListings(params?: { district?: string; search?: str
   return request<{ lands: LandListing[] }>(`/users/land?${q}`);
 }
 
-// ─── Land CRUD ────────────────────────────────────────────────────────────────
 export async function createLandListing(body: Partial<LandListing>) {
   return request<{ land: LandListing }>('/users/land', {
     method: 'POST',

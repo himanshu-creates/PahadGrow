@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { LanguageSelector } from './LanguageSelector';
 import { useLanguage } from '../contexts/LanguageContext';
 import { NotificationBell } from './NotificationBell';
-import { getCart, getWishlist, isLoggedIn, logout, getCurrentUser } from '../../api';
+import { getCart, getWishlist } from '../../api';
+import { useAuth } from '../contexts/AuthContext';
 import logo from '../../assets/placeholder.png';
 
 interface NavbarProps {
@@ -12,16 +13,15 @@ interface NavbarProps {
   userRole?: 'buyer' | 'seller' | 'landowner' | 'admin' | null;
 }
 
-export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: NavbarProps) {
+export function Navbar({ isLoggedIn: _isLoggedInProp, userRole: _userRole }: NavbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user, isLoggedIn: loggedIn, logout } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const loggedIn = isLoggedInProp || isLoggedIn();
-  const user = getCurrentUser();
 
   useEffect(() => {
     if (loggedIn) {
@@ -42,6 +42,7 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
 
   const handleLogout = () => {
     logout();
+    setShowUserMenu(false);
     navigate('/');
   };
 

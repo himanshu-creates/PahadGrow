@@ -65,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null);
     localStorage.removeItem('pg_token');
     localStorage.removeItem('pg_user');
+    // Clear any other pg_ keys just in case
+    Object.keys(localStorage).filter(k => k.startsWith('pg_')).forEach(k => localStorage.removeItem(k));
   };
 
   return (
