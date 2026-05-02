@@ -1,4 +1,4 @@
-// import 'dotenv/config';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './db.js';
@@ -19,7 +19,8 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
-    'http://localhost:4173'
+    'http://localhost:4173',
+    'https://pahad-grow.vercel.app',  
   ],
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
