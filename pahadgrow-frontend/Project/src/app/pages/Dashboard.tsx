@@ -213,7 +213,7 @@ export default function Dashboard() {
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
-      <Navbar isLoggedIn userRole="buyer" />
+      <Navbar isLoggedIn userRole={user?.role ?? 'buyer'} />
 
       {/* Toast */}
       <AnimatePresence>

@@ -306,19 +306,71 @@ router.post('/community', authMiddleware, async (req, res) => {
   }
 });
 
-// ─── LIKE POST ────────────────────────────────────────────────────────────────
+// ─── LIKE POST (idempotent toggle) ───────────────────────────────────────────
 router.post('/community/:postId/like', authMiddleware, async (req, res) => {
   try {
-    const post = await CommunityPost.findByIdAndUpdate(
-      req.params.postId,
-      { $inc: { likes: 1 } },
-      { new: true }
-    );
+    const { action = 'like' } = req.body;
+    const post = await CommunityPost.findById(req.params.postId);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
-    res.json({ success: true, likes: post.likes });
+
+    // Track likes in a simple set on the post document (or use a separate collection)
+    // We store likedBy as an array of userIds on the post
+    const likedBy = post.likedBy || [];
+    const userId = req.user.id.toString();
+    const alreadyLiked = likedBy.includes(userId);
+
+    if (action === 'like' && !alreadyLiked) {
+      post.likes = (post.likes || 0) + 1;
+      post.likedBy = [...likedBy, userId];
+    } else if (action === 'unlike' && alreadyLiked) {
+      post.likes = Math.max(0, (post.likes || 0) - 1);
+      post.likedBy = likedBy.filter(id => id !== userId);
+    }
+
+    await post.save();
+    res.json({ success: true, likes: post.likes, likedByMe: post.likedBy.includes(userId) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 export default router;
+
+// ─── GET REPLIES ──────────────────────────────────────────────────────────────
+router.get('/community/:postId/replies', async (req, res) => {
+  try {
+    const { CommunityReply } = await import('./models.js');
+    const replies = await CommunityReply.find({ postId: req.params.postId })
+      .sort({ createdAt: 1 }).lean();
+    res.json({ success: true, replies: replies.map(r => ({ ...r, _id: r._id, id: r._id })) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── POST REPLY ───────────────────────────────────────────────────────────────
+router.post('/community/:postId/replies', authMiddleware, async (req, res) => {
+  try {
+    const { CommunityReply, CommunityPost } = await import('./models.js');
+    const { content } = req.body;
+    if (!content?.trim())
+      return res.status(400).json({ success: false, message: 'Content required' });
+
+    const post = await CommunityPost.findById(req.params.postId);
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+
+    const reply = await CommunityReply.create({
+      postId: req.params.postId,
+      authorId: req.user.id,
+      authorName: req.user.name,
+      content: content.trim(),
+    });
+
+    post.replyCount = (post.replyCount || 0) + 1;
+    await post.save();
+
+    res.status(201).json({ success: true, reply: { ...reply.toObject(), _id: reply._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});

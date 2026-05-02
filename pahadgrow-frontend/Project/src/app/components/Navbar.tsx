@@ -35,6 +35,7 @@ export function Navbar({ isLoggedIn: isLoggedInProp = false, userRole = null }: 
     { to: '/knowledge', label: t('nav.knowledge') },
     { to: '/land-rental', label: t('nav.landRental') },
     { to: '/community', label: t('nav.community') },
+    { to: '/subscription', label: 'Plans' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

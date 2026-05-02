@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { getCart, removeFromCart, addToCart, placeOrder, isLoggedIn, getCurrentUser, Product } from '../../api';
+
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_Sk3SKxj95myrWa';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface CartItem { productId: string; quantity: number; product: Product; }
@@ -69,7 +71,7 @@ export default function Cart() {
       if (paymentMethod === 'razorpay' || paymentMethod === 'card') {
         // Razorpay checkout
         const options = {
-          key: 'rzp_test_Sk3SKxj95myrWa', 
+          key: RAZORPAY_KEY,
           amount: total * 100, // paise
           currency: 'INR',
           name: 'PahadGrow',
@@ -80,6 +82,15 @@ export default function Cart() {
             for (const item of cart) {
               await placeOrder(item.productId, item.quantity, address);
             }
+            // Clear cart from backend
+            try {
+              const token = localStorage.getItem('pg_token');
+              await fetch(`${import.meta.env.VITE_API_URL || '/api'}/users/cart`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+              });
+            } catch {}
+            setCart([]);
             setOrderId(response.razorpay_payment_id || 'TEST_' + Date.now());
             setStep('success');
           },
@@ -99,6 +110,15 @@ export default function Cart() {
         const res = await placeOrder(item.productId, item.quantity, address);
         ids.push(res.order.id);
       }
+      // Clear cart from backend
+      try {
+        const token = localStorage.getItem('pg_token');
+        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/users/cart`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+      setCart([]);
       setOrderId(ids[0] || 'COD_' + Date.now());
       setStep('success');
     } catch (e: any) {

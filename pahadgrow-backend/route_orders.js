@@ -7,7 +7,9 @@ const router = Router();
 // ─── GET ORDERS ───────────────────────────────────────────────────────────────
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const filter = req.user.role === 'seller' || req.user.role === 'admin'
+    const filter = req.user.role === 'admin'
+      ? {}
+      : req.user.role === 'seller' || req.user.role === 'landowner'
       ? { sellerId: req.user.id }
       : { buyerId: req.user.id };
 
@@ -68,8 +70,16 @@ router.put('/:id/status', authMiddleware, async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    if (order.sellerId.toString() !== req.user.id && req.user.role !== 'admin')
+    const isBuyer  = order.buyerId.toString() === req.user.id;
+    const isSeller = order.sellerId.toString() === req.user.id;
+    const isAdmin  = req.user.role === 'admin';
+
+    if (!isBuyer && !isSeller && !isAdmin)
       return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    // Buyers can only cancel orders in processing state
+    if (isBuyer && !isAdmin && status !== 'cancelled')
+      return res.status(403).json({ success: false, message: 'Buyers can only cancel orders' });
 
     order.status = status;
     await order.save();

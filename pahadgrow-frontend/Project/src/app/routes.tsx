@@ -13,7 +13,7 @@ import LandRental from './pages/LandRental';
 import Community from './pages/Community';
 import Subscription from './pages/Subscription';
 import Profile from './pages/Profile';
-import Cart from './pages/Cart';
+import Cart from './pages/cart';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export const router = createBrowserRouter([

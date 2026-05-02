@@ -104,8 +104,17 @@ const communityPostSchema = new mongoose.Schema({
   question:   { type: String, required: true },
   content:    { type: String, required: true },
   likes:      { type: Number, default: 0 },
+  likedBy:    [{ type: String }],
   replyCount: { type: Number, default: 0 },
   tags:       [{ type: String }],
+}, { timestamps: true });
+
+// ─── Community Reply ──────────────────────────────────────────────────────────
+const communityReplySchema = new mongoose.Schema({
+  postId:     { type: mongoose.Schema.Types.ObjectId, ref: 'CommunityPost', required: true },
+  authorId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  authorName: { type: String, required: true },
+  content:    { type: String, required: true },
 }, { timestamps: true });
 
 export const User          = mongoose.model('User', userSchema);
@@ -115,4 +124,5 @@ export const Order         = mongoose.model('Order', orderSchema);
 export const CartItem      = mongoose.model('CartItem', cartItemSchema);
 export const Wishlist      = mongoose.model('Wishlist', wishlistSchema);
 export const Land          = mongoose.model('Land', landSchema);
-export const CommunityPost = mongoose.model('CommunityPost', communityPostSchema);
+export const CommunityPost  = mongoose.model('CommunityPost', communityPostSchema);
+export const CommunityReply = mongoose.model('CommunityReply', communityReplySchema);

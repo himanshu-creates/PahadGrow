@@ -301,6 +301,27 @@ export async function getLandListings(params?: { district?: string; search?: str
   return request<{ lands: LandListing[] }>(`/users/land?${q}`);
 }
 
+// ─── Land CRUD ────────────────────────────────────────────────────────────────
+export async function createLandListing(body: Partial<LandListing>) {
+  return request<{ land: LandListing }>('/users/land', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateLandListing(id: string, body: Partial<LandListing>) {
+  return request<{ land: LandListing }>(`/users/land/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteLandListing(id: string) {
+  return request<{ success: boolean; message: string }>(`/users/land/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Community ────────────────────────────────────────────────────────────────
 export interface CommunityPost {
   id: string;

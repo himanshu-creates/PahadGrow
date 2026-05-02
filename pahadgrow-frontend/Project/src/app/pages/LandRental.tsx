@@ -8,51 +8,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import {
-  getLandListings, isLoggedIn, getCurrentUser, LandListing
+  getLandListings, createLandListing, updateLandListing, deleteLandListing,
+  isLoggedIn, getCurrentUser, LandListing
 } from '../../api';
-
-// ─── API helpers for land CRUD ─────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-function authHeaders() {
-  const token = localStorage.getItem('pg_token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
-async function createLandListing(body: object) {
-  const res = await fetch(`${BASE_URL}/users/land`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Failed to create listing');
-  return data;
-}
-
-async function updateLandListing(id: string, body: object) {
-  const res = await fetch(`${BASE_URL}/users/land/${id}`, {
-    method: 'PUT',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Failed to update listing');
-  return data;
-}
-
-async function deleteLandListing(id: string) {
-  const res = await fetch(`${BASE_URL}/users/land/${id}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Failed to delete listing');
-  return data;
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DISTRICTS = [
