@@ -3,11 +3,9 @@ import { useNavigate, Link } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, X, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Navbar } from '../components/Navbar';
-import { login } from '../../api';
+import { login, sendOTP, verifyOTP, resetPassword } from '../../api';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../../assets/placeholder.png';
-
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // ─── Forgot Password Modal ────────────────────────────────────────────────────
 function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
@@ -25,7 +23,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    // Auto focus next
+    // Auto-focus next input
     if (value && index < 5) {
       const next = document.getElementById(`otp-${index + 1}`);
       next?.focus();
@@ -39,63 +37,57 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const sendOTP = async () => {
-    if (!email) return setError('Email required');
-    setLoading(true); setError('');
+  // Step 1: Send OTP via api.ts (uses POST /api/auth/send-otp → JSON guaranteed)
+  const handleSendOTP = async () => {
+    if (!email) return setError('Email is required');
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      await sendOTP(email); // throws on error with proper message
       setStep('otp');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to send OTP. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const verifyOTP = async () => {
+  // Step 2: Verify OTP via api.ts (uses POST /api/auth/verify-otp → JSON guaranteed)
+  const handleVerifyOTP = async () => {
     const otpString = otp.join('');
-    if (otpString.length !== 6) return setError('Enter complete 6-digit OTP');
-    setLoading(true); setError('');
+    if (otpString.length !== 6) return setError('Enter the complete 6-digit OTP');
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp: otpString }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await verifyOTP(email, otpString);
       setResetToken(data.resetToken);
       setStep('password');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Invalid OTP. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const resetPassword = async () => {
+  // Step 3: Reset password via api.ts (uses POST /api/auth/reset-password → JSON guaranteed)
+  const handleResetPassword = async () => {
     if (newPassword.length < 6) return setError('Password must be at least 6 characters');
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${BASE_URL}/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetToken, newPassword }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      await resetPassword(resetToken, newPassword);
       setStep('done');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to reset password. Try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendOTP = () => {
+    setStep('email');
+    setOtp(['', '', '', '', '', '']);
+    setError('');
   };
 
   return (
@@ -121,7 +113,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                 {step === 'email' && 'Enter your email to receive OTP'}
                 {step === 'otp' && `OTP sent to ${email}`}
                 {step === 'password' && 'Create your new password'}
-                {step === 'done' && 'You can now login with new password'}
+                {step === 'done' && 'You can now login with your new password'}
               </p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
@@ -162,13 +154,13 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                   <input
                     type="email" value={email}
                     onChange={e => setEmail(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && sendOTP()}
+                    onKeyDown={e => e.key === 'Enter' && handleSendOTP()}
                     placeholder="you@example.com"
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-sm"
                   />
                 </div>
               </div>
-              <button onClick={sendOTP} disabled={loading}
+              <button onClick={handleSendOTP} disabled={loading}
                 className="w-full py-3 bg-green-700 text-white rounded-xl font-semibold hover:bg-green-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</> : 'Send OTP'}
               </button>
@@ -193,11 +185,11 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </div>
               </div>
-              <button onClick={verifyOTP} disabled={loading}
+              <button onClick={handleVerifyOTP} disabled={loading}
                 className="w-full py-3 bg-green-700 text-white rounded-xl font-semibold hover:bg-green-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Verifying...</> : 'Verify OTP'}
               </button>
-              <button onClick={() => { setStep('email'); setOtp(['','','','','','']); }}
+              <button onClick={handleResendOTP}
                 className="w-full py-2 text-sm text-gray-500 hover:text-green-700 transition-colors">
                 Resend OTP
               </button>
@@ -215,7 +207,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && resetPassword()}
+                    onKeyDown={e => e.key === 'Enter' && handleResetPassword()}
                     placeholder="Min 6 characters"
                     className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-sm"
                   />
@@ -225,7 +217,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               </div>
-              <button onClick={resetPassword} disabled={loading}
+              <button onClick={handleResetPassword} disabled={loading}
                 className="w-full py-3 bg-green-700 text-white rounded-xl font-semibold hover:bg-green-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Resetting...</> : 'Reset Password'}
               </button>
@@ -348,7 +340,6 @@ export default function Login() {
                     <input type="checkbox" className="rounded accent-green-700" />
                     <span className="text-sm text-gray-500">Remember me</span>
                   </label>
-                  {/* ✅ Forgot password button now opens modal */}
                   <button type="button" onClick={() => setShowForgot(true)}
                     className="text-sm text-green-700 hover:underline font-medium">
                     Forgot password?

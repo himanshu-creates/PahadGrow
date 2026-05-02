@@ -7,6 +7,7 @@ import productRoutes from './route_products.js';
 import orderRoutes from './route_orders.js';
 import userRoutes from './route_users.js';
 import adminRoutes from './route_admin.js';
+import uploadRoutes from './route_upload.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

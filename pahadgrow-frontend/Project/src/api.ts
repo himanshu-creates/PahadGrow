@@ -1,3 +1,4 @@
+// ─── Base URL ─────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 function getToken(): string | null {
@@ -25,11 +26,20 @@ async function request<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, { ...options, headers });
+
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (networkErr) {
+    throw new Error('Backend se connection nahi ho raha. Kya backend port 4000 pe chal raha hai?');
+  }
 
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    throw new Error(`Backend se connection nahi ho raha. Kya backend port 4000 pe chal raha hai?`);
+    throw new Error(
+      `Server ne JSON nahi bheja (status ${res.status}). ` +
+      `Check karo ki backend chal raha hai aur route sahi hai: ${url}`
+    );
   }
 
   const data = await res.json();
@@ -96,6 +106,34 @@ export function isLoggedIn(): boolean {
 
 export async function getMe() {
   return request<{ user: User }>('/auth/me');
+}
+
+// ─── OTP / Forgot Password ────────────────────────────────────────────────────
+export async function sendOTP(email: string): Promise<{ success: boolean; message: string }> {
+  return request('/auth/send-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyOTP(
+  email: string,
+  otp: string
+): Promise<{ success: boolean; resetToken: string }> {
+  return request('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
+}
+
+export async function resetPassword(
+  resetToken: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ resetToken, newPassword }),
+  });
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────
