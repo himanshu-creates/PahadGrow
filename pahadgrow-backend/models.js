@@ -13,8 +13,9 @@ const userSchema = new mongoose.Schema({
   avatar:         { type: String, default: '' },
   bio:            { type: String, default: '' },
   joinedDate:     { type: String, default: () => new Date().toISOString().split('T')[0] },
-  resetOTP:       { type: String, default: '' },       // ✅ NEW
-  resetOTPExpiry: { type: Date, default: null },        // ✅ NEW
+  resetOTP:       { type: String, default: '' },
+  resetOTPExpiry: { type: Date, default: null },
+  googleId:       { type: String, default: '' },        // ✅ Google OAuth ID
 }, { timestamps: true });
 
 // ─── Product ──────────────────────────────────────────────────────────────────
@@ -117,12 +118,12 @@ const communityReplySchema = new mongoose.Schema({
   content:    { type: String, required: true },
 }, { timestamps: true });
 
-export const User          = mongoose.model('User', userSchema);
-export const Product       = mongoose.model('Product', productSchema);
-export const Review        = mongoose.model('Review', reviewSchema);
-export const Order         = mongoose.model('Order', orderSchema);
-export const CartItem      = mongoose.model('CartItem', cartItemSchema);
-export const Wishlist      = mongoose.model('Wishlist', wishlistSchema);
-export const Land          = mongoose.model('Land', landSchema);
+export const User           = mongoose.model('User', userSchema);
+export const Product        = mongoose.model('Product', productSchema);
+export const Review         = mongoose.model('Review', reviewSchema);
+export const Order          = mongoose.model('Order', orderSchema);
+export const CartItem       = mongoose.model('CartItem', cartItemSchema);
+export const Wishlist       = mongoose.model('Wishlist', wishlistSchema);
+export const Land           = mongoose.model('Land', landSchema);
 export const CommunityPost  = mongoose.model('CommunityPost', communityPostSchema);
 export const CommunityReply = mongoose.model('CommunityReply', communityReplySchema);
