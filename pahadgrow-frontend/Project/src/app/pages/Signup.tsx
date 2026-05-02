@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Mail, Lock, Phone, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { GoogleLogin } from '@react-oauth/google';
 import { Navbar } from '../components/Navbar';
 import { register } from '../../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +22,11 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<PublicRole>('buyer');
 
+  const navigateByRole = (role: string) => {
+    if (role === 'seller' || role === 'landowner') navigate('/seller');
+    else navigate('/dashboard');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -33,14 +39,43 @@ export default function Signup() {
       const data = await register({ name, email, password, phone, role });
       setToken(data.token);
       setUser(data.user);
-      const userRole = data.user.role;
-      if (userRole === 'seller' || userRole === 'landowner') navigate('/seller');
-      else navigate('/dashboard');
+      navigateByRole(data.user.role);
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // ─── Google Login Handler ─────────────────────────────────────────────────
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (!credentialResponse.credential) {
+      setError('Google login failed. No credential received.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${BASE_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Google signup failed');
+      setToken(data.token);
+      setUser(data.user);
+      navigateByRole(data.user.role);
+    } catch (err: any) {
+      setError(err.message || 'Google signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google signup was cancelled or failed. Please try again.');
   };
 
   const roleOptions: { value: PublicRole; label: string; emoji: string; desc: string }[] = [
@@ -94,6 +129,32 @@ export default function Signup() {
                   {error}
                 </motion.div>
               )}
+
+              {/* ─── Google Signup Button ──────────────────────────────────── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22 }}
+                className="flex justify-center mb-5"
+              >
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap={false}
+                  shape="rectangular"
+                  size="large"
+                  width="368"
+                  text="signup_with"
+                />
+              </motion.div>
+
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.24 }}
+                className="relative mb-5">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100" /></div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-3 bg-white text-gray-400">or sign up with email</span>
+                </div>
+              </motion.div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
 

@@ -2,11 +2,13 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
 import { User } from './models.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'pahadgrow_secret_change_in_prod';
 const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'pahadgrow_admin_secret_change_this';
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ─── Nodemailer transporter ───────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
@@ -78,6 +80,79 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ─── GOOGLE OAUTH ─────────────────────────────────────────────────────────────
+router.post('/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google credential token required' });
+    }
+
+    // Verify the Google ID token
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      console.error('[GOOGLE-AUTH] Token verification failed:', verifyErr.message);
+      return res.status(401).json({ success: false, message: 'Invalid Google token. Please try again.' });
+    }
+
+    const { name, email, picture: avatar, sub: googleId } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Could not retrieve email from Google account' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Find existing user or create new one
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      // New user — generate random password (they can reset later via forgot-password)
+      const randomPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await User.create({
+        name: name || 'Google User',
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'buyer',
+        avatar: avatar || '',
+        googleId: googleId || '',
+      });
+
+      console.log('[GOOGLE-AUTH] New user created:', normalizedEmail);
+    } else {
+      // Update avatar if they did not have one
+      if (!user.avatar && avatar) {
+        user.avatar = avatar;
+        await user.save();
+      }
+      console.log('[GOOGLE-AUTH] Existing user logged in:', normalizedEmail);
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...safeUser } = user.toObject();
+    safeUser.id = safeUser._id;
+
+    res.json({ success: true, token, user: safeUser });
+  } catch (err) {
+    console.error('[GOOGLE-AUTH]', err);
+    res.status(500).json({ success: false, message: 'Server error during Google login' });
+  }
+});
+
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
@@ -140,61 +215,45 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// ─── SEND OTP (alias route — same as forgot-password) ────────────────────────
-// Handles POST /api/auth/send-otp
-// This is the explicit route requested in the task spec.
+// ─── SEND OTP (alias route) ───────────────────────────────────────────────────
 router.post('/send-otp', handleSendOTP);
 
 // ─── FORGOT PASSWORD — Send OTP ───────────────────────────────────────────────
-// Handles POST /api/auth/forgot-password
 router.post('/forgot-password', handleSendOTP);
 
-// Shared handler for both /send-otp and /forgot-password
 async function handleSendOTP(req, res) {
   try {
     const { email } = req.body;
 
-    // ── Validate input ──────────────────────────────────────────────────────
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Basic email format check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
 
-    // ── Check email exists in DB ────────────────────────────────────────────
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: 'No account found with this email' });
     }
 
-    // ── Generate 6-digit OTP ────────────────────────────────────────────────
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // always 6 digits
-    const expiry = new Date(Date.now() + 10 * 60 * 1000); // expires in 10 minutes
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    // ── Store OTP in DB ─────────────────────────────────────────────────────
     user.resetOTP = otp;
     user.resetOTPExpiry = expiry;
     await user.save();
 
-    // ── Send OTP email (non-blocking failure) ───────────────────────────────
     const emailSent = await sendOTPEmail(normalizedEmail, otp);
 
     if (!emailSent) {
-      // SMTP not configured / failed — in dev mode, log OTP to console so dev can test
       console.log(`[DEV] OTP for ${normalizedEmail}: ${otp}`);
-
-      // Still return success so the flow continues — dev can check console
-      // In production, return an error instead:
-      // return res.status(500).json({ success: false, message: 'Failed to send OTP email. Check SMTP config.' });
     }
 
-    // ── Return proper JSON response ─────────────────────────────────────────
     return res.status(200).json({
       success: true,
       message: emailSent
@@ -226,7 +285,6 @@ router.post('/verify-otp', async (req, res) => {
     if (!user.resetOTPExpiry || user.resetOTPExpiry < new Date())
       return res.status(400).json({ success: false, message: 'OTP expired. Request a new one.' });
 
-    // Generate short-lived reset token
     const resetToken = jwt.sign(
       { id: user._id, purpose: 'reset' },
       JWT_SECRET,
