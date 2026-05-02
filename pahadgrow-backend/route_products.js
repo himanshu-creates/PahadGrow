@@ -8,10 +8,45 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const { category, search, sellerId, page = 1, limit = 20 } = req.query;
-    const filter = { status: 'active' };
+
+    // Build filter — only apply status:active for public (non-seller-self) requests
+    const filter = {};
 
     if (category) filter.category = category;
-    if (sellerId) filter.sellerId = sellerId;
+
+    // Handle sellerId=me: resolve to the authenticated user's ID
+    if (sellerId) {
+      if (sellerId === 'me') {
+        // Need auth to resolve 'me' — run the middleware inline
+        // We access req.user if already populated, otherwise authenticate first
+        if (!req.user) {
+          // Try to authenticate without hard-failing
+          const authHeader = req.headers['authorization'];
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+              const jwt = await import('jsonwebtoken');
+              const token = authHeader.split(' ')[1];
+              const decoded = jwt.default.verify(token, process.env.JWT_SECRET);
+              req.user = decoded;
+            } catch {
+              return res.status(401).json({ success: false, message: 'Invalid token for sellerId=me' });
+            }
+          } else {
+            return res.status(401).json({ success: false, message: 'Authentication required for sellerId=me' });
+          }
+        }
+        // For own products: show ALL statuses (active + inactive + out_of_stock)
+        filter.sellerId = req.user.id;
+      } else {
+        // Specific seller ID — show only active products (public view)
+        filter.sellerId = sellerId;
+        filter.status = 'active';
+      }
+    } else {
+      // No sellerId filter — public listing, active only
+      filter.status = 'active';
+    }
+
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -27,7 +62,6 @@ router.get('/', async (req, res) => {
       Product.countDocuments(filter),
     ]);
 
-    // Add id field
     const mapped = products.map(p => ({ ...p, id: p._id }));
     res.json({ success: true, products: mapped, total });
   } catch (err) {
@@ -94,11 +128,27 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (product.sellerId.toString() !== req.user.id && req.user.role !== 'admin')
       return res.status(403).json({ success: false, message: 'Not authorized' });
 
-    const allowed = ['name','category','price','originalPrice','unit','stock','description','location','tags','images','status'];
+    const allowed = ['name', 'category', 'price', 'originalPrice', 'unit', 'stock', 'description', 'location', 'tags', 'images', 'status'];
     allowed.forEach(field => { if (req.body[field] !== undefined) product[field] = req.body[field]; });
 
     await product.save();
     res.json({ success: true, product: { ...product.toObject(), id: product._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── DELETE PRODUCT ───────────────────────────────────────────────────────────
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    if (product.sellerId.toString() !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    await product.deleteOne();
+    res.json({ success: true, message: 'Product deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
