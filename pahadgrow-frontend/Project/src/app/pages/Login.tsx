@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, X, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -236,13 +236,22 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
 // ─── Login Page ───────────────────────────────────────────────────────────────
 export default function Login() {
   const navigate = useNavigate();
-  const { setUser, setToken } = useAuth();
+  const { setUser, setToken, isLoggedIn, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showForgot, setShowForgot] = useState(false);
+
+  // ─── Already logged in? Redirect immediately ────────────────────────────────
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      if (user.role === 'admin') navigate('/admin', { replace: true });
+      else if (user.role === 'seller' || user.role === 'landowner') navigate('/seller', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    }
+  }, [isLoggedIn, user, navigate]);
 
   const navigateByRole = (role: string) => {
     if (role === 'admin') navigate('/admin');

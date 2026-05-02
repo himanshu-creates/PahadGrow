@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ArrowRight, ShoppingBag, BookOpen, MapPin, Users, Search, TrendingUp, Package, DollarSign, Filter } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
@@ -8,10 +8,26 @@ import { Navbar } from '../components/Navbar';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { Footer } from '../components/Footer';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import logo from "../../assets/placeholder.png";
 
 export default function Landing() {
   const { t } = useLanguage();
+  const { isLoggedIn, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleStartSelling = () => {
+    if (isLoggedIn) {
+      // Already logged in — go directly to seller dashboard or prompt to become seller
+      if (user?.role === 'seller' || user?.role === 'landowner' || user?.role === 'admin') {
+        navigate('/seller');
+      } else {
+        navigate('/dashboard');
+      }
+    } else {
+      navigate('/login');
+    }
+  };
   const [heroText, setHeroText] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -247,13 +263,13 @@ export default function Landing() {
             transition={{ delay: 0.5, duration: 0.8 }}
             className="flex flex-wrap gap-4 justify-center mt-8"
           >
-            <Link 
-              to="/login" 
+            <button 
+              onClick={handleStartSelling}
               className="group px-8 py-4 bg-primary text-white rounded-xl hover:bg-[#2E7D32] hover:shadow-2xl transition-all flex items-center gap-2 font-semibold hover:scale-105 shadow-lg"
             >
               {t('hero.startSelling')} 
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </button>
             <Link 
               to="/marketplace" 
               className="px-8 py-4 bg-white/20 backdrop-blur-md text-white border-2 border-white/30 rounded-xl hover:bg-white/30 transition-all font-semibold hover:scale-105"
@@ -667,13 +683,13 @@ export default function Landing() {
             <h2 className="text-5xl font-bold mb-6">Ready to Transform Your Future?</h2>
             <p className="text-2xl mb-8 opacity-90">Join 5000+ farmers already earning with PahadGrow</p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link 
-                to="/login" 
+              <button 
+                onClick={handleStartSelling}
                 className="group inline-flex items-center gap-2 px-10 py-5 bg-white text-primary rounded-xl hover:bg-white/90 transition-all font-bold shadow-2xl hover:scale-105 text-lg"
               >
                 Get Started Today 
                 <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
-              </Link>
+              </button>
               <Link 
                 to="/subscription" 
                 className="inline-flex items-center gap-2 px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white rounded-xl hover:bg-white/20 transition-all font-bold text-lg hover:scale-105"

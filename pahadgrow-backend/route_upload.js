@@ -12,36 +12,54 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
+// ─── Image storage (products) ─────────────────────────────────────────────────
+const imageStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'pahadgrow',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 800, height: 800, crop: 'limit', quality: 'auto' }],
+    folder:           'pahadgrow',
+    allowed_formats:  ['jpg', 'jpeg', 'png', 'webp'],
+    transformation:   [{ width: 800, height: 800, crop: 'limit', quality: 'auto' }],
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+// ─── Video storage (knowledge) ────────────────────────────────────────────────
+const videoStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder:          'pahadgrow/knowledge/videos',
+    resource_type:   'video',
+    allowed_formats: ['mp4', 'mov', 'webm', 'avi'],
+    transformation:  [{ quality: 'auto' }],
+  },
 });
 
-router.post('/image', authMiddleware, upload.single('image'), async (req, res) => {
+// ─── Thumbnail storage (knowledge) ───────────────────────────────────────────
+const thumbnailStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder:          'pahadgrow/knowledge/thumbnails',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation:  [{ width: 800, height: 450, crop: 'fill', quality: 'auto' }],
+  },
+});
+
+const uploadImage = multer({ storage: imageStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadVideo = multer({ storage: videoStorage, limits: { fileSize: 200 * 1024 * 1024 } });
+const uploadThumb = multer({ storage: thumbnailStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+// ─── Single image (existing) ──────────────────────────────────────────────────
+router.post('/image', authMiddleware, uploadImage.single('image'), async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ success: false, message: 'No image provided' });
-    res.json({
-      success: true,
-      url: req.file.path,
-      public_id: req.file.filename,
-    });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No image provided' });
+    res.json({ success: true, url: req.file.path, public_id: req.file.filename });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ success: false, message: 'Upload failed' });
   }
 });
 
-router.post('/multiple', authMiddleware, upload.array('images', 5), async (req, res) => {
+// ─── Multiple images (existing) ───────────────────────────────────────────────
+router.post('/multiple', authMiddleware, uploadImage.array('images', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0)
       return res.status(400).json({ success: false, message: 'No images provided' });
@@ -50,6 +68,28 @@ router.post('/multiple', authMiddleware, upload.array('images', 5), async (req, 
   } catch (err) {
     console.error('Multiple upload error:', err);
     res.status(500).json({ success: false, message: 'Upload failed' });
+  }
+});
+
+// ─── Video upload (knowledge) ─────────────────────────────────────────────────
+router.post('/video', authMiddleware, uploadVideo.single('video'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No video provided' });
+    res.json({ success: true, url: req.file.path, public_id: req.file.filename });
+  } catch (err) {
+    console.error('Video upload error:', err);
+    res.status(500).json({ success: false, message: 'Video upload failed' });
+  }
+});
+
+// ─── Thumbnail upload (knowledge) ────────────────────────────────────────────
+router.post('/thumbnail', authMiddleware, uploadThumb.single('thumbnail'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No thumbnail provided' });
+    res.json({ success: true, url: req.file.path, public_id: req.file.filename });
+  } catch (err) {
+    console.error('Thumbnail upload error:', err);
+    res.status(500).json({ success: false, message: 'Thumbnail upload failed' });
   }
 });
 

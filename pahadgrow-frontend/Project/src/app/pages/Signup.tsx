@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Mail, Lock, Phone, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -12,7 +12,16 @@ type PublicRole = 'buyer' | 'seller' | 'landowner';
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { setUser, setToken } = useAuth();
+  const { setUser, setToken, isLoggedIn, user } = useAuth();
+
+  // ─── Already logged in? Redirect immediately ────────────────────────────────
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      if (user.role === 'admin') navigate('/admin', { replace: true });
+      else if (user.role === 'seller' || user.role === 'landowner') navigate('/seller', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    }
+  }, [isLoggedIn, user, navigate]);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
