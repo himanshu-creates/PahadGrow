@@ -138,20 +138,140 @@ router.post('/wishlist/:productId', authMiddleware, async (req, res) => {
 });
 
 // ─── GET LAND LISTINGS ────────────────────────────────────────────────────────
+// GET /api/users/land?district=xyz&search=abc
+// Public route — no auth required
 router.get('/land', async (req, res) => {
   try {
     const { district, search } = req.query;
-    const filter = {};
+    const filter = { status: 'available' };
+
     if (district) filter.district = district;
+
     if (search) {
-      filter.$or = [
-        { village: { $regex: search, $options: 'i' } },
-        { district: { $regex: search, $options: 'i' } },
-        { suitableFor: { $in: [new RegExp(search, 'i')] } },
-      ];
+      // When search is provided, remove the district from base filter
+      // and merge it into $and so both filters apply simultaneously
+      const searchRegex = { $regex: search, $options: 'i' };
+      const searchConditions = {
+        $or: [
+          { village: searchRegex },
+          { district: searchRegex },
+          { description: searchRegex },
+          { suitableFor: { $in: [new RegExp(search, 'i')] } },
+        ],
+      };
+
+      if (district) {
+        // Both district filter AND search
+        filter.$and = [{ district }, searchConditions];
+        delete filter.district;
+      } else {
+        Object.assign(filter, searchConditions);
+      }
     }
+
     const lands = await Land.find(filter).sort({ createdAt: -1 }).lean();
     res.json({ success: true, lands: lands.map(l => ({ ...l, id: l._id })) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── CREATE LAND LISTING ──────────────────────────────────────────────────────
+// POST /api/users/land  (landowner role required)
+router.post('/land', authMiddleware, async (req, res) => {
+  try {
+    // Only landowners (and admins) can create listings
+    if (req.user.role !== 'landowner' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only landowners can create land listings. Update your role in profile settings.',
+      });
+    }
+
+    const {
+      village, district, area, price, priceUnit,
+      suitableFor, water, electricity, description, image,
+    } = req.body;
+
+    if (!village || !district || !area || !price) {
+      return res.status(400).json({
+        success: false,
+        message: 'village, district, area, and price are required',
+      });
+    }
+
+    const land = await Land.create({
+      ownerId: req.user.id,
+      ownerName: req.user.name,
+      village: village.trim(),
+      district: district.trim(),
+      area: area.trim(),
+      price: Number(price),
+      priceUnit: priceUnit || '/month',
+      suitableFor: Array.isArray(suitableFor) ? suitableFor : [],
+      water: Boolean(water),
+      electricity: Boolean(electricity),
+      description: description?.trim() || '',
+      image: image?.trim() || '',
+      status: 'available',
+    });
+
+    res.status(201).json({ success: true, land: { ...land.toObject(), id: land._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── UPDATE LAND LISTING ──────────────────────────────────────────────────────
+// PUT /api/users/land/:id  (owner only)
+router.put('/land/:id', authMiddleware, async (req, res) => {
+  try {
+    const land = await Land.findById(req.params.id);
+    if (!land) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+
+    // Only the owner or admin can update
+    if (land.ownerId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorised to update this listing' });
+    }
+
+    const allowed = [
+      'village', 'district', 'area', 'price', 'priceUnit',
+      'suitableFor', 'water', 'electricity', 'description', 'image', 'status',
+    ];
+    const updates = {};
+    allowed.forEach(f => {
+      if (req.body[f] !== undefined) updates[f] = req.body[f];
+    });
+
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.water !== undefined) updates.water = Boolean(updates.water);
+    if (updates.electricity !== undefined) updates.electricity = Boolean(updates.electricity);
+
+    const updated = await Land.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
+    res.json({ success: true, land: { ...updated, id: updated._id } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── DELETE LAND LISTING ──────────────────────────────────────────────────────
+// DELETE /api/users/land/:id  (owner only)
+router.delete('/land/:id', authMiddleware, async (req, res) => {
+  try {
+    const land = await Land.findById(req.params.id);
+    if (!land) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+
+    // Only the owner or admin can delete
+    if (land.ownerId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorised to delete this listing' });
+    }
+
+    await land.deleteOne();
+    res.json({ success: true, message: 'Listing deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

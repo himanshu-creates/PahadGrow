@@ -314,8 +314,11 @@ export interface CommunityPost {
   createdAt: string;
 }
 
-export async function getCommunityPosts() {
-  return request<{ posts: CommunityPost[] }>('/users/community');
+export async function getCommunityPosts(tag?: string) {
+  const q = new URLSearchParams();
+  if (tag && tag !== 'all') q.set('tag', tag);
+  const qs = q.toString();
+  return request<{ posts: CommunityPost[] }>(`/users/community${qs ? `?${qs}` : ''}`);
 }
 
 export async function createCommunityPost(question: string, content: string, tags: string[]) {
@@ -325,8 +328,11 @@ export async function createCommunityPost(question: string, content: string, tag
   });
 }
 
-export async function likePost(postId: string) {
-  return request<{ likes: number }>(`/users/community/${postId}/like`, { method: 'POST' });
+export async function likePost(postId: string, action: 'like' | 'unlike' = 'like') {
+  return request<{ likes: number }>(`/users/community/${postId}/like`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  });
 }
 
 // ─── Admin APIs ───────────────────────────────────────────────────────────────
