@@ -8,7 +8,9 @@ export function Footer() {
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubscribe = () => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubscribe = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
       setError('Please enter your email.');
@@ -19,9 +21,26 @@ export function Footer() {
       return;
     }
     setError('');
-    setSubscribed(true);
-    setEmail('');
-    // TODO: Connect to your newsletter API here
+    setLoading(true);
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${BASE_URL}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSubscribed(true);
+        setEmail('');
+      } else {
+        setError(data.message || 'Something went wrong.');
+      }
+    } catch {
+      setError('Server se connection nahi ho raha. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const socialLinks = [
@@ -81,9 +100,10 @@ export function Footer() {
                   />
                   <button
                     onClick={handleSubscribe}
-                    className="bg-green-600 hover:bg-green-500 active:scale-95 transition-all px-5 py-2 rounded-lg font-medium whitespace-nowrap"
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-500 active:scale-95 transition-all px-5 py-2 rounded-lg font-medium whitespace-nowrap disabled:opacity-60"
                   >
-                    Subscribe
+                    {loading ? 'Sending...' : 'Subscribe'}
                   </button>
                 </div>
                 {error && <p className="text-red-400 text-xs">{error}</p>}

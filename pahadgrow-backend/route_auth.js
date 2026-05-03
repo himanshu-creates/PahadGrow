@@ -50,6 +50,56 @@ async function sendOTPEmail(toEmail, otp) {
   }
 }
 
+// Helper: send Welcome email
+async function sendWelcomeEmail(toEmail, name) {
+  try {
+    await transporter.sendMail({
+      from: `"PahadGrow" <${process.env.SMTP_EMAIL}>`,
+      to: toEmail,
+      subject: 'PahadGrow mein aapka swagat hai! 🌱',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+          <div style="background: #166534; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">🌱 PahadGrow</h1>
+            <p style="color: #bbf7d0; margin: 4px 0 0; font-size: 12px;">CULTIVATING GROWTH FROM THE HILLS</p>
+          </div>
+          <div style="background: #f9fafb; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb;">
+            <h2 style="color: #166534; margin: 0 0 16px;">Namaste, ${name}! 🙏</h2>
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+              PahadGrow mein aapka swagat hai! Aapka account successfully create ho gaya hai.
+            </p>
+            <div style="background: #dcfce7; border-left: 4px solid #166534; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="color: #166534; font-weight: bold; margin: 0 0 8px;">Aap ab kar sakte hain:</p>
+              <ul style="color: #166534; margin: 0; padding-left: 20px; line-height: 2;">
+                <li>🛒 Pahadi products khareedein</li>
+                <li>🌾 Apne products bechein</li>
+                <li>🏔️ Zameen rent karein</li>
+                <li>📚 Kheti ki knowledge gain karein</li>
+              </ul>
+            </div>
+            <div style="text-align: center; margin-bottom: 24px;">
+              <a href="https://pahad-grow.vercel.app" 
+                 style="background: #166534; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                Ab Shuru Karein →
+              </a>
+            </div>
+            <p style="color: #9ca3af; font-size: 13px; margin: 0; text-align: center;">
+              Pahadon ki taraf se dher saari shubhkamnayein! 🏔️
+            </p>
+          </div>
+          <div style="text-align: center; padding: 16px;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0;">© 2024 PahadGrow. Cultivating Growth From The Hills.</p>
+          </div>
+        </div>
+      `,
+    });
+    return true;
+  } catch (err) {
+    console.error('[SMTP] Failed to send welcome email:', err.message);
+    return false;
+  }
+}
+
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
@@ -89,7 +139,6 @@ router.post('/google', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Google credential token required' });
     }
 
-    // Verify the Google ID token
     let payload;
     try {
       const ticket = await googleClient.verifyIdToken({
@@ -110,11 +159,9 @@ router.post('/google', async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Find existing user or create new one
     let user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      // New user — generate random password (they can reset later via forgot-password)
       const randomPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
       const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
@@ -127,9 +174,10 @@ router.post('/google', async (req, res) => {
         googleId: googleId || '',
       });
 
+      // Send welcome email for new Google users
+      sendWelcomeEmail(normalizedEmail, name || 'User');
       console.log('[GOOGLE-AUTH] New user created:', normalizedEmail);
     } else {
-      // Update avatar if they did not have one
       if (!user.avatar && avatar) {
         user.avatar = avatar;
         await user.save();
@@ -176,6 +224,9 @@ router.post('/register', async (req, res) => {
       name: name.trim(), email: email.toLowerCase().trim(),
       password: hashedPassword, role: safeRole, phone, village, district,
     });
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(email.toLowerCase().trim(), name.trim());
 
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.name },

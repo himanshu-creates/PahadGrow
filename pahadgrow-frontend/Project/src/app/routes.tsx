@@ -14,6 +14,11 @@ import Community from './pages/Community';
 import Subscription from './pages/Subscription';
 import Profile from './pages/Profile';
 import Cart from './pages/cart';
+import Support from './pages/Support';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import RefundPolicy from './pages/RefundPolicy';
+import CookiePolicy from './pages/CookiePolicy';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -28,6 +33,11 @@ export const router = createBrowserRouter([
   { path: '/community', Component: Community },
   { path: '/subscription', Component: Subscription },
 
+  { path: '/support', Component: Support },
+  { path: '/privacy-policy', Component: PrivacyPolicy },
+  { path: '/terms-of-service', Component: TermsOfService },
+  { path: '/refund-policy', Component: RefundPolicy },
+  { path: '/cookie-policy', Component: CookiePolicy },
   // ── Buyer routes (require login) ───────────────────────────────────────────
   {
     path: '/dashboard',
